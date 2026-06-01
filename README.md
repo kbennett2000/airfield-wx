@@ -31,6 +31,13 @@ a single part. New to the terminal or to any of the aviation terms? The
 
 ## What it looks like
 
+### ▶ Try the live demo — **[airfield-wx-demo.vercel.app](https://airfield-wx-demo.vercel.app)**
+
+Click through the dashboard in your browser, no setup required. It's **simulated data for a fictional
+field** ("DEMO / Example Field") — nothing live or measured — with a scenario switcher for a clear (VFR)
+day, a marginal (MVFR) day, and the feed-offline state. Like the product, it's **UNOFFICIAL — not for
+flight planning.**
+
 ![The airfield-wx dashboard, online — density altitude, wind and favored runway, altimeter, and a METAR panel](docs/assets/screenshots/dashboard-online.png)
 
 *The dashboard reads like a panel instrument. Cyan numbers are measured at your field; violet is
