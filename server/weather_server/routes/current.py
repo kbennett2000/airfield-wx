@@ -12,6 +12,7 @@ from .. import db as db_module
 from ..cache import TTLCache
 from ..config import SensorConfig
 from ..responses import (
+    build_airport,
     build_astronomy,
     build_external,
     build_live_reading,
@@ -67,11 +68,13 @@ async def get_current(request: Request) -> CurrentResponse:
         stale_after_seconds=external_stale_after(config),
         outdoor_reading=outdoor_reading,
     )
+    airport = build_airport(server_time, config, outdoor_reading)
     return CurrentResponse(
         server_time=server_time,
         sensors=sensors_out,
         astronomy=astronomy,
         external=external,
+        airport=airport,
     )
 
 

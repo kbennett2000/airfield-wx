@@ -6,18 +6,23 @@ inputs. Each `build_*` function returns a Pydantic model from schemas.py.
 
 from __future__ import annotations
 
+import functools
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from .config import Config, SensorConfig
+from .config import AirportConfig, Config, SensorConfig
 from .derivations import astronomy as astro
 from .derivations import fused
 from .derivations import light as lt
 from .derivations import location as loc
 from .derivations import readings as rd
+from .derivations.airport import AirportInfo, resolve_airport
+from .derivations.runway import RunwaySolution as RunwaySolutionData
+from .derivations.runway import runway_solution
 from .external import Observation, cardinal_from_deg
 from .schemas import (
+    Airport,
     Astronomy,
     CalibrationBlock,
     DerivedReading,
@@ -27,6 +32,9 @@ from .schemas import (
     MoonBlock,
     RawReading,
     ReferenceLocation,
+    Runway,
+    RunwayEnd,
+    RunwaySolution,
     SensorReading,
     SkyBlock,
     SunBlock,
@@ -442,6 +450,132 @@ def external_stale_after(config: Config) -> float:
     """How old an external observation may get before it's flagged stale:
     three refresh intervals, floored at 15 minutes."""
     return max(900.0, 3.0 * config.external.refresh_interval_seconds)
+
+
+# ── airport / runways ─────────────────────────────────────────────────────────
+
+
+def _resolve_reference_altitude(
+    config: Config, outdoor_reading: SensorReading | None
+) -> float | None:
+    """Altitude (m) for the location engine: live GPS vertical, then the
+    outdoor sensor's configured fallback."""
+    if (
+        outdoor_reading is not None
+        and outdoor_reading.location is not None
+        and outdoor_reading.location.altitude_m is not None
+    ):
+        return outdoor_reading.location.altitude_m
+    outdoor_cfg = config.outdoor
+    if outdoor_cfg is not None:
+        return outdoor_cfg.fallback_altitude_m
+    return None
+
+
+def _local_wind(outdoor_reading: SensorReading | None) -> tuple[float | None, float | None]:
+    """The current LOCAL wind as (FROM-direction TRUE deg, speed kt).
+
+    Reads the derived true-direction wind and the raw m/s speed that the
+    anemometer adds in Cycle 6. Until then those fields are absent, so this
+    returns (None, None) and the runway solution stays null. Never the
+    external/model wind (decision 6)."""
+    if outdoor_reading is None:
+        return None, None
+    direction: float | None = getattr(outdoor_reading.derived, "wind_direction_true_deg", None)
+    speed_ms: float | None = getattr(outdoor_reading.raw, "wind_speed_ms", None)
+    speed_kt = speed_ms * MS_TO_KT if speed_ms is not None else None
+    return direction, speed_kt
+
+
+@functools.lru_cache(maxsize=16)
+def _resolve_airport_cached(
+    lat: float | None,
+    lon: float | None,
+    alt_m: float | None,
+    year: int,
+    airport_cfg: AirportConfig,
+) -> AirportInfo | None:
+    """Cache the static airport per (rounded location, year, config). The
+    airport — identity, runways, elevation, declination — doesn't change for a
+    fixed station, so this avoids rescanning the 85k-row dataset every request.
+    The wind-dependent runway solution is computed fresh by the caller."""
+    when = datetime(year, 7, 1, tzinfo=UTC)
+    return resolve_airport(lat, lon, alt_m, when, airport_cfg)
+
+
+def build_airport(
+    server_time: datetime,
+    config: Config,
+    outdoor_reading: SensorReading | None,
+    *,
+    lat_override: float | None = None,
+    lon_override: float | None = None,
+) -> Airport | None:
+    lat, lon, _source = _resolve_reference_location(
+        config, outdoor_reading, lat_override, lon_override
+    )
+    alt_m = _resolve_reference_altitude(config, outdoor_reading)
+    info = _resolve_airport_cached(
+        None if lat is None else round(lat, 4),
+        None if lon is None else round(lon, 4),
+        None if alt_m is None else round(alt_m, 1),
+        server_time.year,
+        config.airport,
+    )
+    if info is None:
+        return None
+
+    wind_from_true_deg, wind_speed_kt = _local_wind(outdoor_reading)
+    solution = runway_solution(
+        info.runways, wind_from_true_deg, wind_speed_kt, config.airport.crosswind_limit_kt
+    )
+    return _airport_model(info, solution)
+
+
+def _airport_model(info: AirportInfo, solution: RunwaySolutionData | None) -> Airport:
+    return Airport(
+        ident=info.ident,
+        name=info.name,
+        type=info.type,
+        field_elevation_ft=_round(info.field_elevation_ft),
+        distance_nm=_round(info.distance_nm, 2),
+        source=info.source,
+        magnetic_variation_deg=_round(info.magnetic_variation_deg),
+        magnetic_model=info.magnetic_model,
+        runways=[
+            Runway(
+                le_ident=r.le_ident,
+                he_ident=r.he_ident,
+                le_heading_true_deg=_round(r.le_heading_true_deg),
+                he_heading_true_deg=_round(r.he_heading_true_deg),
+                le_heading_mag_deg=_round(r.le_heading_mag_deg),
+                he_heading_mag_deg=_round(r.he_heading_mag_deg),
+                length_ft=r.length_ft,
+                surface=r.surface,
+            )
+            for r in info.runways
+        ],
+        runway_solution=_runway_solution_model(solution),
+    )
+
+
+def _runway_solution_model(solution: RunwaySolutionData | None) -> RunwaySolution | None:
+    if solution is None:
+        return None
+    return RunwaySolution(
+        favored=solution.favored,
+        ends=[
+            RunwayEnd(
+                ident=e.ident,
+                headwind_kt=_round(e.headwind_kt),
+                crosswind_kt=_round(e.crosswind_kt),
+                crosswind_side=e.crosswind_side,
+                tailwind=e.tailwind,
+                crosswind_exceeds_limit=e.crosswind_exceeds_limit,
+            )
+            for e in solution.ends
+        ],
+    )
 
 
 # ── history rows ────────────────────────────────────────────────────────────

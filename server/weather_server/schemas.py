@@ -252,6 +252,59 @@ class ExternalBlock(_StrictModel):
     et0_mm_hour: float | None = None
 
 
+# ── Airport / runways (D-LOCATION + wind-derived runway solution) ─────────────
+
+
+class Runway(_StrictModel):
+    """A runway, both ends. Headings carried in both frames (D-LOCATION).
+    Internal canonical frame is TRUE; magnetic is exposed for the UI."""
+
+    le_ident: str | None = None
+    he_ident: str | None = None
+    le_heading_true_deg: float | None = None
+    he_heading_true_deg: float | None = None
+    le_heading_mag_deg: float | None = None
+    he_heading_mag_deg: float | None = None
+    length_ft: float | None = None
+    surface: str | None = None
+
+
+class RunwayEnd(_StrictModel):
+    """Wind components for one runway end (derived from the current local wind)."""
+
+    ident: str | None = None
+    headwind_kt: float | None = None
+    crosswind_kt: float | None = None  # magnitude
+    crosswind_side: str | None = None  # "L" | "R"
+    tailwind: bool | None = None
+    crosswind_exceeds_limit: bool | None = None
+
+
+class RunwaySolution(_StrictModel):
+    """Favored end + per-end components. Recomputed per request from the current
+    LOCAL wind; null when there's no wind reading (e.g. no anemometer yet)."""
+
+    favored: str | None = None
+    ends: list[RunwayEnd] = Field(default_factory=list)
+
+
+class Airport(_StrictModel):
+    """Nearest/overridden airport. Identity, runway geometry, field elevation,
+    and magnetic variation are D-LOCATION (functions of position; effectively
+    static for a fixed station). runway_solution is derived from current wind."""
+
+    ident: str | None = None
+    name: str | None = None
+    type: str | None = None
+    field_elevation_ft: float | None = None
+    distance_nm: float | None = None
+    source: str | None = None  # "config_override" | "gps_nearest" | "manual"
+    magnetic_variation_deg: float | None = None  # signed, +east
+    magnetic_model: str | None = None
+    runways: list[Runway] = Field(default_factory=list)
+    runway_solution: RunwaySolution | None = None
+
+
 # ── Endpoint responses ───────────────────────────────────────────────────────
 
 
@@ -260,6 +313,7 @@ class CurrentResponse(_StrictModel):
     sensors: dict[str, SensorReading]
     astronomy: Astronomy
     external: ExternalBlock | None = None
+    airport: Airport | None = None
 
 
 class CurrentSensorResponse(_StrictModel):
@@ -353,6 +407,11 @@ class SensorListResponse(_StrictModel):
 class AstronomyResponse(_StrictModel):
     server_time: datetime
     astronomy: Astronomy
+
+
+class AirportResponse(_StrictModel):
+    server_time: datetime
+    airport: Airport | None = None
 
 
 class HealthSensorEntry(_StrictModel):
