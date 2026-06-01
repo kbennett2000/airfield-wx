@@ -203,6 +203,13 @@ class Astronomy(_StrictModel):
 # ── External (internet-sourced regional conditions) ──────────────────────────
 
 
+class SkyLayer(_StrictModel):
+    """One reported METAR sky layer (EXTERNAL)."""
+
+    cover: str | None = None
+    base_ft_agl: int | None = None
+
+
 class ExternalBlock(_StrictModel):
     """Internet-sourced regional conditions (EXTERNAL provenance).
 
@@ -250,6 +257,20 @@ class ExternalBlock(_StrictModel):
     thsw_index_c: float | None = None
     thsw_index_f: float | None = None
     et0_mm_hour: float | None = None
+
+    # aviation (METAR provider only) — ceiling/visibility/flight category are
+    # the authoritative source for these; flight_category comes ONLY from the
+    # METAR, never from our own sensors (decision 8).
+    metar_raw: str | None = None
+    sky_layers: list[SkyLayer] | None = None
+    ceiling_ft_agl: int | None = None  # lowest BKN/OVC base; null = unlimited
+    visibility_sm: float | None = None
+    flight_category: str | None = None  # VFR | MVFR | IFR | LIFR
+    altimeter_inhg: float | None = None  # station's reported QNH
+    altimeter_hpa: float | None = None
+    altimeter_diff_inhg: float | None = None  # station altimeter − our local setting
+    temp_c: float | None = None
+    dewpoint_c: float | None = None
 
 
 # ── Airport / runways (D-LOCATION + wind-derived runway solution) ─────────────

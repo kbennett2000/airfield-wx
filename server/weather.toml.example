@@ -34,6 +34,10 @@ fixture_dir = "fixtures"
 #   "nws"          — keyless, real US station observations. Auto-finds the
 #                    nearest station, or set station_id to pin one.
 #   "wunderground" — a specific PWS by station_id; needs a free member api_key.
+#   "metar"        — keyless aviationweather.gov: ceiling, visibility, flight
+#                    category, and the station altimeter (cross-checks our
+#                    altimeter setting). Auto-finds the nearest reporting
+#                    station, or set station_id to pin an ICAO id (e.g. "KSEA").
 #
 # fetch: which fields to request (open-meteo supports all of these).
 # cross_check: compare the model vs the nearest NWS station and flag
@@ -45,7 +49,7 @@ refresh_interval_seconds = 300
 http_timeout_seconds = 8
 fetch = ["wind", "cloud", "uv", "precip", "visibility"]
 cross_check = false
-# station_id = "KXX00001"     # nws (pin a station) or wunderground (required)
+# station_id = "KXX00001"     # nws/metar (pin a station) or wunderground (required)
 # api_key = "..."             # wunderground only (free; never the website key)
 # lat_override = 0.0          # default: outdoor GPS, then its fallback_lat/lon
 # lon_override = 0.0

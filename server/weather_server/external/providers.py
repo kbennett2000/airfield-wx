@@ -37,7 +37,19 @@ log = logging.getLogger(__name__)
 HttpGetJson = Callable[[str, dict[str, str] | None, float], Any]
 
 _NWS_USER_AGENT = "(airfield-wx, weather-server)"
+_METAR_USER_AGENT = "airfield-wx/0.1 (https://github.com/kbennett2000/airfield-wx)"
 _KMH_TO_MS = 1.0 / 3.6
+_INHG_PER_HPA = 0.0295300
+_CEILING_COVERS = frozenset({"BKN", "OVC", "OVX"})  # OVX = vertical visibility / obscured
+_CATEGORY_RANK = {"VFR": 0, "MVFR": 1, "IFR": 2, "LIFR": 3}
+
+
+@dataclass(frozen=True)
+class MetarSkyLayer:
+    """One reported sky layer from a METAR (cover + base in ft AGL)."""
+
+    cover: str
+    base_ft_agl: int | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +70,17 @@ class Observation:
     precip_mm: float | None = None
     visibility_m: float | None = None
     confidence: str | None = None  # "normal" | "low"
+
+    # Aviation fields — populated by the `metar` provider only (EXTERNAL).
+    metar_raw: str | None = None
+    sky_layers: tuple[MetarSkyLayer, ...] | None = None
+    ceiling_ft_agl: int | None = None
+    visibility_sm: float | None = None
+    flight_category: str | None = None  # VFR | MVFR | IFR | LIFR
+    altimeter_inhg: float | None = None
+    altimeter_hpa: float | None = None
+    temp_c: float | None = None
+    dewpoint_c: float | None = None
 
 
 _CARDINALS = (
@@ -255,6 +278,209 @@ def _fetch_wunderground(
     return normalize_wunderground(payload, station_id)
 
 
+# ── METAR (aviationweather.gov) ───────────────────────────────────────────────
+
+_METAR_BASE = "https://aviationweather.gov/api/data/metar"
+# Discovered home station is static; cache it across refreshes (keyed on
+# rounded coords). Cleared in tests via _reset_station_cache().
+_STATION_CACHE: dict[tuple[float, float], str] = {}
+
+
+def _reset_station_cache() -> None:
+    _STATION_CACHE.clear()
+
+
+def _station_cache_key(lat: float, lon: float) -> tuple[float, float]:
+    return round(lat, 3), round(lon, 3)
+
+
+def _parse_visibility_sm(value: Any) -> float | None:
+    """Statute miles. '10+' → 10.0 (>=10); plain numeric → float; fractions
+    like '1 1/2' / '1/2' summed. Unparseable → None."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().rstrip("+").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    try:
+        total = 0.0
+        for part in s.split():
+            if "/" in part:
+                num, den = part.split("/")
+                total += float(num) / float(den)
+            else:
+                total += float(part)
+        return total
+    except (ValueError, ZeroDivisionError):
+        return None
+
+
+def _parse_sky_layers(clouds: Any) -> tuple[MetarSkyLayer, ...] | None:
+    if not isinstance(clouds, list):
+        return None
+    layers: list[MetarSkyLayer] = []
+    for entry in clouds:
+        if not isinstance(entry, dict):
+            continue
+        cover = entry.get("cover")
+        if not isinstance(cover, str):
+            continue
+        base = _num(entry.get("base"))
+        layers.append(MetarSkyLayer(cover=cover, base_ft_agl=None if base is None else int(base)))
+    return tuple(layers)
+
+
+def _ceiling_ft(layers: list[MetarSkyLayer] | tuple[MetarSkyLayer, ...] | None) -> int | None:
+    """Lowest BKN/OVC/OVX base (ft AGL). FEW/SCT don't count; clear → None."""
+    if not layers:
+        return None
+    bases = [
+        layer.base_ft_agl
+        for layer in layers
+        if layer.cover in _CEILING_COVERS and layer.base_ft_agl is not None
+    ]
+    return min(bases) if bases else None
+
+
+def _category_from_ceiling(ceiling_ft: int | None) -> str:
+    if ceiling_ft is None:
+        return "VFR"  # no ceiling does not constrain
+    if ceiling_ft < 500:
+        return "LIFR"
+    if ceiling_ft < 1000:
+        return "IFR"
+    if ceiling_ft <= 3000:
+        return "MVFR"
+    return "VFR"
+
+
+def _category_from_visibility(vis_sm: float | None) -> str:
+    if vis_sm is None:
+        return "VFR"
+    if vis_sm < 1.0:
+        return "LIFR"
+    if vis_sm < 3.0:
+        return "IFR"
+    if vis_sm <= 5.0:
+        return "MVFR"
+    return "VFR"
+
+
+def _compute_flight_category(ceiling_ft: int | None, vis_sm: float | None) -> str:
+    """The WORSE of the ceiling-based and visibility-based category."""
+    by_ceiling = _category_from_ceiling(ceiling_ft)
+    by_vis = _category_from_visibility(vis_sm)
+    return by_ceiling if _CATEGORY_RANK[by_ceiling] >= _CATEGORY_RANK[by_vis] else by_vis
+
+
+def normalize_metar(payload: Any, query_lat: float, query_lon: float) -> Observation | None:
+    if not isinstance(payload, list) or not payload:
+        return None
+    entry = payload[0]
+    if not isinstance(entry, dict):
+        return None
+
+    station_id = entry.get("icaoId")
+    if not isinstance(station_id, str):
+        return None
+
+    obs_time = entry.get("obsTime")
+    observed_at = (
+        datetime.fromtimestamp(int(obs_time), tz=UTC)
+        if isinstance(obs_time, (int, float)) and not isinstance(obs_time, bool)
+        else _parse_iso(entry.get("reportTime"))
+    )
+
+    sky_layers = _parse_sky_layers(entry.get("clouds"))
+    ceiling = _ceiling_ft(sky_layers)
+    vis_sm = _parse_visibility_sm(entry.get("visib"))
+    altim_hpa = _num(entry.get("altim"))
+
+    api_cat = entry.get("fltCat")
+    flight_category = (
+        api_cat if isinstance(api_cat, str) and api_cat in _CATEGORY_RANK
+        else _compute_flight_category(ceiling, vis_sm)
+    )
+
+    distance_km: float | None = None
+    slat, slon = _num(entry.get("lat")), _num(entry.get("lon"))
+    if slat is not None and slon is not None:
+        distance_km = round(haversine_km(query_lat, query_lon, slat, slon), 1)
+
+    raw = entry.get("rawOb")
+    return Observation(
+        provider="metar",
+        source=f"metar:{station_id}",
+        station_id=station_id,
+        distance_km=distance_km,
+        observed_at=observed_at,
+        metar_raw=raw if isinstance(raw, str) else None,
+        sky_layers=sky_layers,
+        ceiling_ft_agl=ceiling,
+        visibility_sm=vis_sm,
+        flight_category=flight_category,
+        altimeter_hpa=altim_hpa,
+        altimeter_inhg=None if altim_hpa is None else altim_hpa * _INHG_PER_HPA,
+        temp_c=_num(entry.get("temp")),
+        dewpoint_c=_num(entry.get("dewp")),
+    )
+
+
+def _discover_nearest_entry(
+    lat: float, lon: float, http_get: HttpGetJson, timeout: float
+) -> dict[str, Any] | None:
+    """bbox query around the point, expanding until non-empty; return the
+    nearest station entry by haversine. None if every box is empty."""
+    headers = {"User-Agent": _METAR_USER_AGENT}
+    for half in (0.5, 1.0, 2.0):
+        bbox = f"{lat - half},{lon - half},{lat + half},{lon + half}"
+        payload = http_get(f"{_METAR_BASE}?bbox={bbox}&format=json", headers, timeout)
+        if not isinstance(payload, list) or not payload:
+            continue
+        best: dict[str, Any] | None = None
+        best_km = math.inf
+        for entry in payload:
+            if not isinstance(entry, dict):
+                continue
+            elat, elon = _num(entry.get("lat")), _num(entry.get("lon"))
+            if elat is None or elon is None:
+                continue
+            d = haversine_km(lat, lon, elat, elon)
+            if d < best_km:
+                best_km, best = d, entry
+        if best is not None:
+            return best
+    return None
+
+
+def _fetch_metar(
+    cfg: ExternalConfig, lat: float, lon: float, http_get: HttpGetJson, timeout: float
+) -> Observation | None:
+    headers = {"User-Agent": _METAR_USER_AGENT}
+    key = _station_cache_key(lat, lon)
+    station_id = cfg.station_id or _STATION_CACHE.get(key)
+
+    if station_id:
+        payload = http_get(f"{_METAR_BASE}?ids={station_id}&format=json", headers, timeout)
+        return normalize_metar(payload, lat, lon)
+
+    entry = _discover_nearest_entry(lat, lon, http_get, timeout)
+    if entry is None:
+        return None
+    discovered = entry.get("icaoId")
+    if isinstance(discovered, str):
+        _STATION_CACHE[key] = discovered
+    return normalize_metar([entry], lat, lon)
+
+
 # ── confidence cross-check ────────────────────────────────────────────────────
 
 
@@ -294,6 +520,8 @@ def fetch_external(
             obs = _fetch_nws(cfg, lat, lon, http_get, timeout)
         elif cfg.provider == "wunderground":
             obs = _fetch_wunderground(cfg, http_get, timeout)
+        elif cfg.provider == "metar":
+            obs = _fetch_metar(cfg, lat, lon, http_get, timeout)
         else:  # pragma: no cover - guarded by config validation
             log.warning("unknown external provider %r", cfg.provider)
             return None
@@ -309,7 +537,7 @@ def fetch_external(
     if obs is None:
         return None
 
-    if cfg.cross_check and cfg.provider != "nws":
+    if cfg.cross_check and cfg.provider not in ("nws", "metar"):
         obs = _apply_cross_check(obs, lat, lon, http_get, timeout)
     return obs
 

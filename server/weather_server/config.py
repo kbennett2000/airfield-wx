@@ -42,7 +42,7 @@ class DevelopmentConfig:
 # Optional internet-sourced regional conditions (wind etc.). Disabled by
 # default: when the [external] section is absent the fetch task never
 # spawns and the server behaves exactly as an offline-only deployment.
-_EXTERNAL_PROVIDERS = ("open-meteo", "nws", "wunderground")
+_EXTERNAL_PROVIDERS = ("open-meteo", "nws", "wunderground", "metar")
 _EXTERNAL_FETCH_DEFAULT = ("wind", "cloud", "uv", "precip", "visibility")
 
 

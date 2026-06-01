@@ -1,0 +1,44 @@
+[
+  {
+    "icaoId": "KBFI",
+    "obsTime": 1780329180,
+    "temp": 16.0,
+    "dewp": 6,
+    "visib": "10+",
+    "altim": 1023.0,
+    "rawOb": "METAR KBFI 011553Z 02009KT 10SM FEW250 16/06 A3020",
+    "lat": 47.5455,
+    "lon": -122.3148,
+    "name": "Boeing Field, WA, US",
+    "clouds": [{ "cover": "FEW", "base": 25000 }],
+    "fltCat": "VFR"
+  },
+  {
+    "icaoId": "KSEA",
+    "obsTime": 1780329180,
+    "temp": 15.6,
+    "dewp": 5,
+    "visib": "10+",
+    "altim": 1023.1,
+    "rawOb": "METAR KSEA 011553Z 02011KT 10SM SCT250 16/05 A3021",
+    "lat": 47.4447,
+    "lon": -122.3144,
+    "name": "Seattle-Tacoma Intl, WA, US",
+    "clouds": [{ "cover": "SCT", "base": 25000 }],
+    "fltCat": "VFR"
+  },
+  {
+    "icaoId": "KRNT",
+    "obsTime": 1780329180,
+    "temp": 16.1,
+    "dewp": 6,
+    "visib": "10+",
+    "altim": 1023.0,
+    "rawOb": "METAR KRNT 011553Z 02008KT 10SM CLR 16/06 A3020",
+    "lat": 47.4951,
+    "lon": -122.2144,
+    "name": "Renton Muni, WA, US",
+    "clouds": [],
+    "fltCat": "VFR"
+  }
+]

@@ -37,6 +37,7 @@ from .schemas import (
     RunwaySolution,
     SensorReading,
     SkyBlock,
+    SkyLayer,
     SunBlock,
 )
 
@@ -373,6 +374,7 @@ def build_external(
     wg = obs.wind_gust_ms
     vis = obs.visibility_m
     fused = _fused_indices(ws, obs.wind_direction_deg, outdoor_reading)
+    aviation = _aviation_fields(obs, outdoor_reading)
 
     return ExternalBlock(
         provider=obs.provider,
@@ -399,6 +401,7 @@ def build_external(
         visibility_m=_round(vis, 0),
         visibility_km=_round(None if vis is None else vis / 1000.0, 1),
         **fused,
+        **aviation,
     )
 
 
@@ -443,6 +446,36 @@ def _fused_indices(
             out["et0_mm_hour"] = _round(
                 fused.et0_hourly_mm(temp_c, humidity, wind_speed_ms, solar, pressure_pa), 3
             )
+    return out
+
+
+def _aviation_fields(
+    obs: Observation, outdoor_reading: SensorReading | None
+) -> dict[str, Any]:
+    """METAR aviation fields + the altimeter cross-check. For the model
+    providers these obs fields are None, so everything maps to None."""
+    out: dict[str, Any] = {
+        "metar_raw": obs.metar_raw,
+        "ceiling_ft_agl": obs.ceiling_ft_agl,
+        "visibility_sm": _round(obs.visibility_sm),
+        "flight_category": obs.flight_category,
+        "altimeter_inhg": _round(obs.altimeter_inhg, 2),
+        "altimeter_hpa": _round(obs.altimeter_hpa),
+        "temp_c": _round(obs.temp_c),
+        "dewpoint_c": _round(obs.dewpoint_c),
+    }
+    if obs.sky_layers is not None:
+        out["sky_layers"] = [
+            SkyLayer(cover=layer.cover, base_ft_agl=layer.base_ft_agl)
+            for layer in obs.sky_layers
+        ]
+    # Cross-check the station altimeter against our locally-derived setting.
+    diff: float | None = None
+    if obs.altimeter_inhg is not None and outdoor_reading is not None:
+        local = outdoor_reading.derived.altimeter_setting_inhg
+        if local is not None:
+            diff = round(obs.altimeter_inhg - local, 2)
+    out["altimeter_diff_inhg"] = diff
     return out
 
 

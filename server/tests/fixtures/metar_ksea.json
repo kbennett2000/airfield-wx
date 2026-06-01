@@ -1,0 +1,27 @@
+[
+  {
+    "icaoId": "KSEA",
+    "receiptTime": "2026-06-01T15:56:32.297Z",
+    "obsTime": 1780329180,
+    "reportTime": "2026-06-01T16:00:00.000Z",
+    "temp": 15.6,
+    "dewp": 5,
+    "wdir": 20,
+    "wspd": 11,
+    "visib": "10+",
+    "altim": 1023.1,
+    "slp": 1023.7,
+    "qcField": 12,
+    "metarType": "METAR",
+    "rawOb": "METAR KSEA 011553Z 02011KT 10SM SCT250 16/05 A3021 RMK AO2 SLP237 T01560050 $",
+    "lat": 47.4447,
+    "lon": -122.3144,
+    "elev": 115,
+    "name": "Seattle-Tacoma Intl, WA, US",
+    "cover": "SCT",
+    "clouds": [
+      { "cover": "SCT", "base": 25000 }
+    ],
+    "fltCat": "VFR"
+  }
+]
