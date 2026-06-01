@@ -5,658 +5,150 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Weather Station</title>
 
-<!-- Fonts and Chart.js are vendored under dashboard/vendor/ so the
-     dashboard works on a LAN with no internet access. The original CDN
-     URLs were https://cdn.jsdelivr.net/... and https://fonts.googleapis.com/...
-     — see dashboard/vendor/ for snapshots and a refresh script. -->
+<!-- Self-hosted, vendored fonts + styles. No CDN — the dashboard runs on a
+     LAN with no internet (offline-first). The mockup's Google-Fonts link is
+     replaced by the vendored IBM Plex Sans Condensed / JetBrains Mono /
+     Saira Stencil One in dashboard/vendor/. -->
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="style.css">
-<script src="vendor/chart.umd.min.js"></script>
 </head>
 <body>
 
-<div class="app">
+<div class="wrap">
 
-  <!-- HEADER -->
-  <header class="header">
-    <div class="brand">
-      <div class="brand-mark" id="branding-system-mark">[BRANDING — system mark]</div>
-      <div class="brand-title" id="branding-title">[BRANDING — station title]</div>
-      <div class="brand-sub" id="branding-subtitle">[BRANDING — station subtitle]</div>
+  <!-- ══ HEADER BEZEL ══ -->
+  <header class="bezel">
+    <div class="brandblock">
+      <div class="sys" id="branding-system-mark">SYS</div>
+      <div class="slot slot-name" id="branding-title">[ PRODUCT NAME ]</div><br>
+      <div class="slot slot-tag" id="branding-tagline">[ TAGLINE / ROTATING STRAPLINE ]</div>
+      <div class="brand-foot lbl">header &middot; tagline &middot; footer &middot; state copy <span class="pin">&larr; branding.toml</span></div>
     </div>
 
-    <div class="header-meta">
-      <div class="tagline">
-        // <span class="tagline-text" id="branding-tagline">[BRANDING — rotating tagline slot]</span>
+    <div class="head-right">
+      <div class="clock">
+        <div class="z" id="zulu">--:--:--<b>Z</b></div>
+        <div class="loc" id="local-clock">LOCAL --:--</div>
       </div>
-      <div class="tagline" style="margin-top: 8px; color: var(--text-dim);">
-        SERVER &nbsp;<span style="color: var(--cool)" id="server-addr">--</span>&nbsp;&nbsp; TZ &nbsp;<span style="color: var(--text)" id="server-tz">--</span>
+      <div class="station">
+        <div class="id" id="station-id">&mdash;</div>
+        <div class="nm">nearest field elev</div>
+        <div class="auto" id="station-source">auto-resolved from GPS</div>
       </div>
-      <div class="tagline" style="margin-top: 6px;">
-        <a class="meta-link" href="/api/v1/current" target="_blank" rel="noopener">Raw Data</a>
-        &nbsp;&nbsp;<span style="color: var(--text-dim)">/</span>&nbsp;&nbsp;
-        <a class="meta-link" href="/api/v1/external" target="_blank" rel="noopener">Regional</a>
-        &nbsp;&nbsp;<span style="color: var(--text-dim)">/</span>&nbsp;&nbsp;
-        <a class="meta-link" href="/api/v1/summary/outdoor" target="_blank" rel="noopener">Summary</a>
-        &nbsp;&nbsp;<span style="color: var(--text-dim)">/</span>&nbsp;&nbsp;
-        <a class="meta-link" href="/docs" target="_blank" rel="noopener">API Docs</a>
+      <div class="leds">
+        <div class="led"><span class="dot" id="led-outdoor"></span> Outdoor sensor</div>
+        <div class="led"><span class="dot" id="led-anemometer"></span> Anemometer</div>
+        <div class="led"><span class="dot ext" id="led-feed"></span> Net feed</div>
+        <div class="led"><span class="dot" id="led-gps"></span> <span id="led-gps-label">GPS fix</span></div>
       </div>
-    </div>
-
-    <div class="header-status">
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="clock-date" id="clock-date">--</div>
-      <div class="status-row">
-        <div class="status-item"><span class="led" id="led-outdoor"></span>OUTDOOR</div>
-        <div class="status-item"><span class="led" id="led-indoor"></span>INDOOR</div>
-        <div class="status-item"><span class="led" id="led-basement"></span>BASEMENT</div>
-        <div class="status-item"><span class="led" id="led-net"></span>NET</div>
-        <div class="status-item"><span class="led" id="led-gps"></span>GPS</div>
-        <div class="status-item"><span class="led" id="led-db"></span>DB</div>
+      <!-- demo-only switches: rendered in default state, wired in 7b -->
+      <div class="switches" aria-hidden="true">
+        <div class="sw"><div class="swl">Net Feed</div><div class="swv">ONLINE</div></div>
+        <div class="sw"><div class="swl">Sky</div><div class="swv">DAY</div></div>
+        <div class="sw"><div class="swl">Units</div><div class="swv">IMP</div></div>
       </div>
     </div>
   </header>
 
-  <!-- DATA STATUS — hidden by default; shows on initial load and on fetch errors -->
-  <div id="data-status" class="data-status" hidden></div>
+  <!-- ══ PERSISTENT CAUTION — non-removable (decision 11 / ADR-0005) ══ -->
+  <div class="caution" role="alert">
+    <span class="chev">&#9656;&#9656;&#9656;</span>
+    UNOFFICIAL &mdash; NOT FOR FLIGHT PLANNING
+    <small>Backyard sensor data + nearby reports. Not a substitute for an official preflight briefing or current METAR/TAF.</small>
+  </div>
 
-  <!-- MAIN GRID -->
+  <!-- data-status: loading / fetch-error copy (from branding.toml) -->
+  <div class="data-status" id="data-status" hidden></div>
+
+  <!-- ══ PANEL GRID ══ -->
   <div class="grid">
 
-    <!-- OUTDOOR HERO -->
-    <section class="panel panel-out" data-code="WX-OUT · A1" id="panel-outdoor">
-      <div class="panel-head">
-        <span class="led" id="led-outdoor-head"></span>
-        <span class="panel-head-title">Outdoor Conditions</span>
-        <span class="panel-head-sub" id="outdoor-headsub">--</span>
+    <!-- DENSITY ALTITUDE (hero) — LOCAL -->
+    <section class="panel hero span5" style="animation-delay:.04s">
+      <div class="phead"><span class="lbl">Density Altitude</span><span class="code">P-01 · PERF · LOCAL ◉</span></div>
+      <div class="big"><span id="da">&mdash;</span><span class="unit">ft</span></div>
+      <div class="sub">
+        <div class="metric"><div class="mv"><span id="pa">&mdash;</span><span class="u">ft</span></div><div class="ml">Pressure alt</div></div>
+        <div class="metric"><div class="mv"><span id="isa-dev">&mdash;</span><span class="u">°C</span></div><div class="ml">ISA deviation</div></div>
+        <div class="metric"><div class="mv"><span id="da-above">&mdash;</span><span class="u">ft</span></div><div class="ml">DA above field</div></div>
       </div>
+      <div class="bar"><i id="da-bar"></i></div>
+      <div class="barscale"><span id="da-scale-field">FIELD &mdash;</span><span id="da-scale-da">DA &mdash;</span><span>10,000 ft</span></div>
+    </section>
 
-      <div class="hero">
-        <div class="hero-temp">
-          <div class="hero-temp-main"><span id="out-temp-f">--</span><span class="unit">°F</span></div>
-          <div class="hero-temp-alt"><span id="out-temp-c">--</span> °C  ·  feels <span id="out-feels-f">--</span> °F <span class="src-tag" id="out-feels-src"></span></div>
-          <div class="hero-temp-label">Air Temperature</div>
-        </div>
-
-        <div class="hero-sub">
-          <div class="metric">
-            <div class="metric-label">Humidity</div>
-            <div class="metric-value"><span id="out-hum">--</span><span style="font-size:14px;color:var(--text-dim)">%</span></div>
-            <div class="metric-sub"><span id="out-abshum">--</span> g/m³ absolute</div>
+    <!-- WIND + RUNWAY — LOCAL -->
+    <section class="panel span4" style="animation-delay:.10s">
+      <div class="phead"><span class="lbl">Wind &amp; Runway</span><span class="code">R-01 · LOCAL ◉</span></div>
+      <div class="windwrap">
+        <svg id="compass" viewBox="0 0 180 180" aria-label="wind and runway compass"></svg>
+        <div class="winddata">
+          <div class="wd-big"><span id="wind-dir">&mdash;</span> <span id="wind-speed" style="color:var(--accent)">&mdash;</span><span class="u">kt</span></div>
+          <div><span class="chip cau" id="wind-gust" hidden></span></div>
+          <div class="rwy-fav" id="rwy-fav" hidden></div>
+          <div class="comp">
+            <div><div class="cv"><span id="hw">&mdash;</span> <span style="font-size:11px;color:var(--dim)">kt</span></div><div class="cl">Headwind</div></div>
+            <div><div class="cv"><span id="xw">&mdash;</span> <span style="font-size:11px;color:var(--dim)">kt</span></div><div class="cl">Crosswind</div></div>
           </div>
-          <div class="metric">
-            <div class="metric-label">Dew Point</div>
-            <div class="metric-value"><span id="out-dew-f">--</span><span style="font-size:14px;color:var(--text-dim)">°F</span></div>
-            <div class="metric-sub"><span id="out-dew-c">--</span> °C</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Pressure (Sea-Level)</div>
-            <div class="metric-value warm"><span id="out-press-sl-inhg">--</span><span style="font-size:14px;color:var(--readout-dim)"> inHg</span></div>
-            <div class="metric-sub"><span id="out-press-sl-hpa">--</span> hPa</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Pressure (Station)</div>
-            <div class="metric-value"><span id="out-press-st-inhg">--</span><span style="font-size:14px;color:var(--text-dim)"> inHg</span></div>
-            <div class="metric-sub"><span id="out-press-st-hpa">--</span> hPa · <span id="out-alt-m">--</span> m alt</div>
-          </div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.1em;padding-top:10px;grid-column:1/-1">
-          <!-- [BRANDING] outdoor-state slot -->
-          // <span id="outdoor-branding"></span>
+          <div class="magnote" id="magnote">&mdash;</div>
+          <div class="nofield" id="nofield" hidden>no field resolved</div>
         </div>
       </div>
     </section>
 
-    <!-- ASTRONOMY -->
-    <section class="panel panel-astro" data-code="ASTRO · B1">
-      <div class="panel-head">
-        <span class="led on"></span>
-        <span class="panel-head-title">Sky &amp; Astronomy</span>
-        <span class="panel-head-sub" id="astro-tz">--</span>
-      </div>
-
-      <div class="astro-grid">
-
-        <!-- Polar plot -->
-        <div class="polar">
-          <svg id="polar-svg" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <radialGradient id="polarBg" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#0d1218"/>
-                <stop offset="100%" stop-color="#070a0e"/>
-              </radialGradient>
-              <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#ffd57a" stop-opacity="0.9"/>
-                <stop offset="100%" stop-color="#ffb547" stop-opacity="0"/>
-              </radialGradient>
-              <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#cfe4ee" stop-opacity="0.6"/>
-                <stop offset="100%" stop-color="#58c4d4" stop-opacity="0"/>
-              </radialGradient>
-            </defs>
-
-            <!-- Background -->
-            <circle cx="130" cy="130" r="120" fill="url(#polarBg)" stroke="#1d2733" stroke-width="1"/>
-
-            <!-- Altitude rings (30°, 60°) -->
-            <circle cx="130" cy="130" r="80" fill="none" stroke="#1a2330" stroke-width="1" stroke-dasharray="2 3"/>
-            <circle cx="130" cy="130" r="40" fill="none" stroke="#1a2330" stroke-width="1" stroke-dasharray="2 3"/>
-
-            <!-- Cardinal lines -->
-            <line x1="130" y1="10" x2="130" y2="250" stroke="#1a2330" stroke-width="1" stroke-dasharray="2 3"/>
-            <line x1="10" y1="130" x2="250" y2="130" stroke="#1a2330" stroke-width="1" stroke-dasharray="2 3"/>
-
-            <!-- Cardinal labels -->
-            <text x="130" y="6" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#6e7a8b" letter-spacing="2">N</text>
-            <text x="256" y="134" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#6e7a8b" letter-spacing="2">E</text>
-            <text x="130" y="258" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#6e7a8b" letter-spacing="2">S</text>
-            <text x="4" y="134" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#6e7a8b" letter-spacing="2">W</text>
-
-            <!-- Altitude scale labels -->
-            <text x="132" y="92" font-family="JetBrains Mono" font-size="8" fill="#4b5564">60°</text>
-            <text x="132" y="52" font-family="JetBrains Mono" font-size="8" fill="#4b5564">30°</text>
-
-            <!-- Sun + moon groups populated by JS -->
-            <g id="polar-sun" transform="translate(130, 130)"></g>
-            <g id="polar-moon" transform="translate(130, 130)"></g>
-
-            <!-- Horizon label -->
-            <text x="130" y="245" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#4b5564" letter-spacing="2">HORIZON 0°</text>
-          </svg>
-        </div>
-
-        <!-- Day arc -->
-        <div class="day-arc">
-          <svg id="day-arc-svg" viewBox="0 0 480 70" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="dayGrad" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%"   stop-color="#1a1f28"/>
-                <stop offset="8%"   stop-color="#3a2418"/>
-                <stop offset="20%"  stop-color="#7a4a1a"/>
-                <stop offset="50%"  stop-color="#ffb547"/>
-                <stop offset="80%"  stop-color="#7a4a1a"/>
-                <stop offset="92%"  stop-color="#3a2418"/>
-                <stop offset="100%" stop-color="#1a1f28"/>
-              </linearGradient>
-            </defs>
-
-            <!-- Background track -->
-            <rect x="0" y="32" width="480" height="6" rx="3" fill="#11171f" stroke="#1d2733" stroke-width="1"/>
-
-            <!-- Lit portion + markers populated by JS -->
-            <g id="day-arc-content"></g>
-          </svg>
-        </div>
-
-        <div class="astro-times">
-          <div class="metric">
-            <div class="metric-label">Day Length</div>
-            <div class="metric-value warm"><span id="astro-daylen">--</span><span style="font-size:11px;color:var(--readout-dim)"> h</span></div>
-          </div>
-          <div class="metric">
-            <div class="metric-label" id="astro-countdown-label">To Sunset</div>
-            <div class="metric-value"><span id="astro-countdown">--</span><span style="font-size:11px;color:var(--text-dim)"> h</span></div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Sun Position</div>
-            <div class="metric-value" style="font-size:13px" id="astro-sunpos">--</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Season</div>
-            <div class="metric-value" style="font-size:13px" id="astro-season">--</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label" id="astro-nextevent-label">Next Event</div>
-            <div class="metric-value" style="font-size:13px" id="astro-nextevent">--</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Daylight Δ</div>
-            <div class="metric-value" style="font-size:13px" id="astro-daylendelta">--</div>
-          </div>
-        </div>
-
-        <div class="moon-meta" id="sun-extra" style="padding:2px 2px 0">SUNRISE AZ -- · SUNSET AZ -- · SHADOW --</div>
-
-        <div class="moon-row">
-          <div class="moon-glyph" id="moon-glyph">🌑</div>
-          <div class="moon-info">
-            <div class="moon-phase" id="moon-phase">--</div>
-            <div class="moon-meta" id="moon-meta">--</div>
-            <div class="moon-meta" id="moon-next" style="margin-top:3px">NEW -- · FULL --</div>
-          </div>
-        </div>
+    <!-- ALTIMETER / PRESSURE — DERIVED (local) -->
+    <section class="panel span3" style="animation-delay:.16s">
+      <div class="phead"><span class="lbl">Altimeter</span><span class="code">P-02 · DERIVED ◉</span></div>
+      <div class="rows">
+        <div class="row"><span class="rl">Altimeter (QNH)</span><span class="rv"><span id="qnh">&mdash;</span><span class="u">inHg</span></span></div>
+        <div class="row"><span class="rl">Station press.</span><span class="rv"><span id="stp">&mdash;</span><span class="u">inHg</span></span></div>
+        <div class="row"><span class="rl">Tendency 3h</span><span class="rv"><span id="tendency">&mdash;</span></span></div>
+        <div class="row"><span class="rl">vs nearest METAR</span><span class="chip muted">7b</span></div>
       </div>
     </section>
 
-    <!-- REGIONAL (internet-sourced — optional) -->
-    <section class="panel panel-regional" data-code="WX-NET · F1" id="panel-regional">
-      <div class="panel-head">
-        <span class="led" id="led-regional-head"></span>
-        <span class="panel-head-title">Regional Conditions</span>
-        <span class="confidence-low" id="regional-confidence" style="display:none">LOW CONFIDENCE</span>
-        <span class="panel-head-sub" id="regional-headsub">--</span>
-        <span class="offline-tag" id="regional-offline-tag" style="display:none">
-          <span style="width:4px;height:4px;background:currentColor;border-radius:50%"></span>NO FEED
-        </span>
-      </div>
-
-      <div class="regional-grid">
-        <div class="wind-compass">
-          <svg id="wind-compass-svg" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="80" cy="80" r="74" fill="#0a0e13" stroke="#1d2733" stroke-width="1"/>
-            <circle cx="80" cy="80" r="58" fill="none" stroke="#1a2330" stroke-width="1" stroke-dasharray="2 3"/>
-            <line x1="80" y1="8"  x2="80" y2="20"  stroke="#2a3441" stroke-width="1"/>
-            <line x1="80" y1="140" x2="80" y2="152" stroke="#2a3441" stroke-width="1"/>
-            <line x1="8"  y1="80" x2="20"  y2="80" stroke="#2a3441" stroke-width="1"/>
-            <line x1="140" y1="80" x2="152" y2="80" stroke="#2a3441" stroke-width="1"/>
-            <text x="80" y="6"   text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#6e7a8b">N</text>
-            <text x="157" y="84" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#6e7a8b">E</text>
-            <text x="80" y="159" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#6e7a8b">S</text>
-            <text x="3"  y="84"  text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#6e7a8b">W</text>
-            <g id="wind-needle"></g>
-            <text x="80" y="76" text-anchor="middle" font-family="JetBrains Mono" font-size="26" fill="#ffb547" font-variant-numeric="tabular-nums" id="wind-compass-speed">--</text>
-            <text x="80" y="92" text-anchor="middle" font-family="JetBrains Mono" font-size="10" fill="#7b8696" letter-spacing="1" id="wind-compass-card">--</text>
-            <text x="80" y="104" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#4b5564" letter-spacing="1">MPH</text>
-          </svg>
-        </div>
-
-        <div class="regional-metrics">
-          <div class="metric">
-            <div class="metric-label">Wind</div>
-            <div class="metric-value warm"><span id="reg-wind-mph">--</span><span class="u"> mph</span></div>
-            <div class="metric-sub"><span id="reg-wind-dir">--</span> · <span id="reg-wind-kmh">--</span> km/h</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Gust</div>
-            <div class="metric-value"><span id="reg-gust-mph">--</span><span class="u"> mph</span></div>
-            <div class="metric-sub">Beaufort <span id="reg-beaufort">--</span> · <span id="reg-beaufort-desc">--</span></div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Feels Like</div>
-            <div class="metric-value"><span id="reg-apparent-f">--</span><span class="u"> °F</span></div>
-            <div class="metric-sub">chill <span id="reg-windchill-f">--</span> · THSW <span id="reg-thsw-f">--</span></div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Cloud Cover</div>
-            <div class="metric-value cool"><span id="reg-cloud">--</span><span class="u"> %</span></div>
-            <div class="metric-sub">UV index <span id="reg-uv">--</span></div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Visibility</div>
-            <div class="metric-value"><span id="reg-vis">--</span><span class="u"> km</span></div>
-            <div class="metric-sub">precip <span id="reg-precip">--</span> mm</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Reference ET₀</div>
-            <div class="metric-value"><span id="reg-et0">--</span><span class="u"> mm/h</span></div>
-            <div class="metric-sub">evapotranspiration</div>
-          </div>
-        </div>
+    <!-- TEMP / DEWPOINT / SPREAD — LOCAL -->
+    <section class="panel span3" style="animation-delay:.22s">
+      <div class="phead"><span class="lbl">Temp / Moisture</span><span class="code">A-01 · LOCAL ◉</span></div>
+      <div class="rows">
+        <div class="row"><span class="rl">OAT</span><span class="rv"><span id="oat">&mdash;</span><span class="u">°F</span></span></div>
+        <div class="row"><span class="rl">Dewpoint</span><span class="rv"><span id="dew">&mdash;</span><span class="u">°F</span></span></div>
+        <div class="row"><span class="rl">Spread</span><span class="rv"><span id="spread">&mdash;</span><span class="u">°F</span></span></div>
+        <div class="row"><span class="rl">Rel. humidity</span><span class="rv"><span id="rh">&mdash;</span><span class="u">%</span></span></div>
       </div>
     </section>
 
-    <!-- INDOOR -->
-    <section class="panel panel-indoor" data-code="WX-IN · A2" id="panel-indoor">
-      <div class="panel-head">
-        <span class="led" id="led-indoor-head"></span>
-        <span class="panel-head-title">Indoor</span>
-        <span class="panel-head-sub" id="indoor-headsub">--</span>
-      </div>
-
-      <div class="indoor-grid">
-        <div style="padding: 8px 0 12px;">
-          <div class="indoor-temp"><span id="in-temp-f">--</span><span class="unit">°F</span></div>
-          <div class="metric-sub" style="margin-top:4px"><span id="in-temp-c">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Humidity</div>
-          <div class="metric-value"><span id="in-hum">--</span><span style="font-size:12px;color:var(--text-dim)">%</span></div>
-          <div class="metric-sub"><span id="in-abshum">--</span> g/m³ absolute</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Dew Point</div>
-          <div class="metric-value"><span id="in-dew-f">--</span><span style="font-size:12px;color:var(--text-dim)">°F</span></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Pressure</div>
-          <div class="metric-value" style="font-size:18px"><span id="in-press-inhg">--</span><span style="font-size:11px;color:var(--text-dim)"> inHg</span></div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.1em;padding-top:6px">
-          <!-- [BRANDING] indoor-state slot -->
-          // <span id="indoor-branding"></span>
-        </div>
-      </div>
+    <!-- CEILING / VISIBILITY (METAR) — 7b -->
+    <section class="panel todo7b span5" style="animation-delay:.28s">
+      <span class="todo7b-tag">7b · METAR</span>
+      <div class="phead"><span class="lbl">Ceiling &amp; Visibility</span><span class="code">M-01 · METAR</span></div>
+      <div class="todo7b-copy">Ceiling, sky layers, visibility, flight category &amp; the altimeter cross-check
+        (internet-sourced, violet) arrive in Cycle 7b — with offline dimming.</div>
     </section>
 
-    <!-- BASEMENT -->
-    <section class="panel panel-basement" data-code="WX-BSMT · A3" id="panel-basement">
-      <div class="panel-head">
-        <span class="led" id="led-basement-head"></span>
-        <span class="panel-head-title">Indoor Jr</span>
-        <span class="panel-head-sub" id="basement-headsub">--</span>
-        <span class="offline-tag" id="basement-offline-tag" style="display:none">
-          <span style="width:4px;height:4px;background:currentColor;border-radius:50%"></span>OFFLINE
-        </span>
-      </div>
-
-      <div class="indoor-grid">
-        <div style="padding: 8px 0 12px;">
-          <div class="indoor-temp"><span id="bsmt-temp-f">--</span><span class="unit">°F</span></div>
-          <div class="metric-sub" style="margin-top:4px" id="bsmt-temp-sub"><span id="bsmt-temp-c">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label" id="bsmt-hum-label">Humidity</div>
-          <div class="metric-value"><span id="bsmt-hum">--</span><span style="font-size:12px;color:var(--text-dim)">%</span></div>
-          <div class="metric-sub"><span id="bsmt-abshum">--</span> g/m³ absolute</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label" id="bsmt-press-label">Pressure</div>
-          <div class="metric-value" style="font-size:18px"><span id="bsmt-press-inhg">--</span><span style="font-size:11px;color:var(--text-dim)"> inHg</span></div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:0.1em;padding-top:6px">
-          <!-- [BRANDING] - offline-state slot -->
-          // <span id="basement-branding">[BRANDING — offline-state slot]</span>
-        </div>
-      </div>
+    <!-- DAY / NIGHT — 7b -->
+    <section class="panel todo7b span4" style="animation-delay:.34s">
+      <span class="todo7b-tag" style="color:var(--accent);border-color:rgba(47,212,207,.5)">7b · ASTRO</span>
+      <div class="phead"><span class="lbl">Day · Sun</span><span class="code">D-00 · ASTRO</span></div>
+      <div class="todo7b-copy">The day/night theming, twilight arc, sun/moon position and the
+        regional-overlay note arrive in Cycle 7b.</div>
     </section>
 
-    <!-- DERIVED THERMODYNAMICS (local, always available) -->
-    <section class="panel panel-derived" data-code="THERMO · A4" id="panel-derived">
-      <div class="panel-head">
-        <span class="led on"></span>
-        <span class="panel-head-title">Derived Thermodynamics</span>
-        <span class="panel-head-sub">LOCAL · COMPUTED</span>
-      </div>
-      <div class="thermo-grid">
-        <div class="metric">
-          <div class="metric-label">Wet Bulb</div>
-          <div class="metric-value"><span id="th-wetbulb-f">--</span><span class="u"> °F</span></div>
-          <div class="metric-sub"><span id="th-wetbulb-c">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Humidex</div>
-          <div class="metric-value"><span id="th-humidex-c">--</span><span class="u"> °C</span></div>
-          <div class="metric-sub">frost pt <span id="th-frost-c">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">VPD</div>
-          <div class="metric-value cool"><span id="th-vpd">--</span><span class="u"> kPa</span></div>
-          <div class="metric-sub">deficit</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Mixing Ratio</div>
-          <div class="metric-value"><span id="th-mixing">--</span><span class="u"> g/kg</span></div>
-          <div class="metric-sub">specific <span id="th-specific">--</span></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Vapor Pressure</div>
-          <div class="metric-value"><span id="th-vp">--</span><span class="u"> hPa</span></div>
-          <div class="metric-sub">sat <span id="th-svp">--</span></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Air Density</div>
-          <div class="metric-value"><span id="th-density">--</span><span class="u"> kg/m³</span></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Density Altitude</div>
-          <div class="metric-value"><span id="th-densalt">--</span><span class="u"> ft</span></div>
-          <div class="metric-sub">press alt <span id="th-pressalt">--</span> ft</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Cloud Base</div>
-          <div class="metric-value"><span id="th-cloudbase">--</span><span class="u"> ft</span></div>
-          <div class="metric-sub">est. condensation level</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LIGHT -->
-    <section class="panel panel-light" data-code="LIGHT · C1">
-      <div class="panel-head">
-        <span class="led on"></span>
-        <span class="panel-head-title">Light Sensor</span>
-        <span class="panel-head-sub">TSL2591</span>
-      </div>
-
-      <div class="light-grid">
-        <div class="lux-display">
-          <div class="metric-label" style="margin-bottom: 6px">Illuminance</div>
-          <div class="lux-value"><span id="lux-value">--</span><span class="unit">lux</span></div>
-          <div class="metric-sub" style="margin-top:4px" id="lux-band">--</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Visible</div>
-          <div class="metric-value cool" id="light-visible">--</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Infrared</div>
-          <div class="metric-value cool" id="light-ir">--</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Full Spectrum</div>
-          <div class="metric-value" id="light-full">--</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">UV Index <span class="est-tag">EST</span></div>
-          <div class="metric-value"><span id="sky-uv">--</span></div>
-          <div class="metric-sub">sun alt <span id="sky-sunalt">--</span>°</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Cloud Cover <span class="est-tag">EST</span></div>
-          <div class="metric-value cool"><span id="sky-cloud">--</span><span class="u"> %</span></div>
-          <div class="metric-sub" id="sky-condition">--</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Irradiance <span class="est-tag">EST</span></div>
-          <div class="metric-value"><span id="sky-irr">--</span><span class="u"> W/m²</span></div>
-          <div class="metric-sub">from illuminance</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- GPS -->
-    <section class="panel panel-gps" data-code="GPS · C2">
-      <div class="panel-head">
-        <span class="led" id="led-gps-head"></span>
-        <span class="panel-head-title">Location &amp; GPS</span>
-        <span class="panel-head-sub" id="gps-headsub">NEO-6M · -- SAT</span>
-      </div>
-
-      <div class="gps-grid">
-        <div class="gps-row">
-          <div class="metric-label">Decimal</div>
-          <div class="gps-mono" id="gps-decimal">--</div>
-        </div>
-        <div class="gps-row">
-          <div class="metric-label">DMS</div>
-          <div class="gps-mono" id="gps-dms">--</div>
-        </div>
-        <div class="gps-row">
-          <div class="metric-label">Maidenhead Grid</div>
-          <div class="gps-mono"><span class="gps-grid-label" id="gps-maidenhead">--</span></div>
-        </div>
-        <div class="gps-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
-          <div>
-            <div class="metric-label">Altitude</div>
-            <div class="gps-mono" id="gps-alt-m">--</div>
-            <div class="metric-sub" id="gps-alt-ft">--</div>
-          </div>
-          <div>
-            <div class="metric-label">Satellites</div>
-            <div class="gps-mono"><span style="color:var(--led-on)" id="gps-sats">--</span> <span style="color:var(--text-dim);font-size:11px">in fix</span></div>
-          </div>
-          <div>
-            <div class="metric-label">Timezone</div>
-            <div class="gps-mono" style="font-size:13px" id="gps-tz">--</div>
-            <div class="metric-sub" id="gps-tz-offset">--</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TODAY / SUMMARY (history-derived) -->
-    <section class="panel panel-summary" data-code="TODAY · D0" id="panel-summary">
-      <div class="panel-head">
-        <span class="led on" id="led-summary-head"></span>
-        <span class="panel-head-title">Today &amp; Trends</span>
-        <span class="panel-head-sub" id="summary-headsub">--</span>
-      </div>
-
-      <div class="window-bar" id="summary-window-bar">
-        <button class="window-btn active" data-period="today">TODAY</button>
-        <button class="window-btn" data-period="24h">24H</button>
-        <button class="window-btn" data-period="7d">7D</button>
-        <button class="window-btn" data-period="30d">30D</button>
-      </div>
-
-      <div class="summary-grid">
-        <div class="metric">
-          <div class="metric-label">Temp High / Low</div>
-          <div class="metric-value warm"><span id="sum-temp-hi">--</span> / <span id="sum-temp-lo">--</span><span class="u"> °F</span></div>
-          <div class="metric-sub">avg <span id="sum-temp-avg">--</span> °F · range <span id="sum-diurnal">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Pressure Trend</div>
-          <div class="metric-value"><span class="tendency-arrow" id="sum-tendency-arrow">→</span> <span id="sum-tendency" style="font-size:15px">--</span></div>
-          <div class="metric-sub"><span id="sum-tendency-val">--</span> hPa / 3h</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Temp Trend</div>
-          <div class="metric-value"><span id="sum-temp-trend">--</span><span class="u"> °C/h</span></div>
-          <div class="metric-sub">rate of change</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Humidity Range</div>
-          <div class="metric-value cool"><span id="sum-hum-lo">--</span>–<span id="sum-hum-hi">--</span><span class="u"> %</span></div>
-          <div class="metric-sub">dew avg <span id="sum-dew">--</span> °C</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Degree Days</div>
-          <div class="metric-value" style="font-size:15px"><span id="sum-dd">--</span></div>
-          <div class="metric-sub">HDD / CDD / GDD (°F)</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Light · ET₀</div>
-          <div class="metric-value"><span id="sum-dli">--</span><span class="u"> mol/m²</span></div>
-          <div class="metric-sub">ET₀ <span id="sum-et0">--</span> mm</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CHARTS -->
-    <section class="panel panel-charts" data-code="HIST · D1">
-      <div class="panel-head">
-        <span class="led on"></span>
-        <span class="panel-head-title">Historical Readings</span>
-        <span class="panel-head-sub" id="hist-samples">-- SAMPLES</span>
-      </div>
-
-      <div class="window-bar" id="window-bar">
-        <button class="window-btn" data-hours="1">1H</button>
-        <button class="window-btn" data-hours="6">6H</button>
-        <button class="window-btn" data-hours="12">12H</button>
-        <button class="window-btn active" data-hours="24">24H</button>
-        <button class="window-btn" data-hours="168">7D</button>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Temperature</span>
-            <span class="chart-current" id="chart-cur-temp">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartTemp"></canvas></div>
-        </div>
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Humidity</span>
-            <span class="chart-current" id="chart-cur-hum">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartHum"></canvas></div>
-        </div>
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Pressure (Sea-Level)</span>
-            <span class="chart-current" id="chart-cur-press">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartPress"></canvas></div>
-        </div>
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Dew Point</span>
-            <span class="chart-current" id="chart-cur-dew">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartDew"></canvas></div>
-        </div>
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Visible Light</span>
-            <span class="chart-current" id="chart-cur-vis">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartVis"></canvas></div>
-        </div>
-        <div class="chart-cell">
-          <div class="chart-cell-head">
-            <span class="chart-title">Infrared</span>
-            <span class="chart-current" id="chart-cur-ir">--</span>
-          </div>
-          <div class="chart-canvas-wrap"><canvas id="chartIR"></canvas></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- DEVICE TELEMETRY -->
-    <section class="panel panel-device" data-code="TELEM · E1">
-      <div class="panel-head">
-        <span class="led on"></span>
-        <span class="panel-head-title">Device Telemetry · Outdoor ESP32</span>
-        <span class="panel-head-sub" id="telem-sub">--</span>
-      </div>
-
-      <div class="telemetry-grid">
-        <div class="tel-metric">
-          <div class="metric-label">WiFi RSSI</div>
-          <div class="tel-value warm"><span id="tel-rssi">--</span> <span style="font-size:11px;color:var(--text-dim)">dBm</span></div>
-          <div class="metric-sub" id="tel-rssi-band">--</div>
-        </div>
-        <div class="tel-metric">
-          <div class="metric-label">Free Heap</div>
-          <div class="tel-value"><span id="tel-heap">--</span> <span style="font-size:11px;color:var(--text-dim)">KB</span></div>
-        </div>
-        <div class="tel-metric">
-          <div class="metric-label">Uptime</div>
-          <div class="tel-value" id="tel-uptime">--</div>
-        </div>
-        <div class="tel-metric">
-          <div class="metric-label">Temp Offset</div>
-          <div class="tel-value"><span id="tel-offset">--</span> <span style="font-size:11px;color:var(--text-dim)">°C</span></div>
-          <div class="metric-sub">from config</div>
-        </div>
-        <div class="tel-metric">
-          <div class="metric-label">Last Reading</div>
-          <div class="tel-value"><span id="tel-age">--</span> <span style="font-size:11px;color:var(--text-dim)">sec ago</span></div>
-        </div>
-        <div class="tel-metric">
-          <div class="metric-label">Records Logged</div>
-          <div class="tel-value" id="tel-records">--</div>
-        </div>
-      </div>
+    <!-- TREND — 7b -->
+    <section class="panel todo7b span12" style="animation-delay:.40s">
+      <span class="todo7b-tag">7b · D-HISTORY</span>
+      <div class="phead"><span class="lbl">Today &amp; Trend</span><span class="code">H-00 · D-HISTORY</span></div>
+      <div class="todo7b-copy">The density-altitude / OAT / altimeter trend chart arrives in Cycle 7b.</div>
     </section>
 
   </div>
 
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div id="branding-system-line">[BRANDING — footer system line]</div>
-    <div class="footer-branding">
-      <!-- [BRANDING] footer slot -->
-      <span id="branding-footer">[BRANDING — footer reference goes here]</span>
-    </div>
-    <div>v2.0 · MIT</div>
+  <footer>
+    <div class="slot slot-tag" style="font-size:10px" id="branding-footer">[ FOOTER &mdash; branding.toml ]</div>
+    <div class="ver"><span id="branding-system-line"></span> &middot; LOCAL ◉ derived &nbsp;|&nbsp;
+      <span style="color:var(--ext)">METAR</span> internet &middot; offline-first</div>
   </footer>
-
 </div>
 
-<script src="app.js"></script>
+<script src="app.js" defer></script>
 </body>
 </html>
