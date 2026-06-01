@@ -1,0 +1,15 @@
+# Jones Big Ass Weather Tray — example config
+#
+# Copy this file to one of:
+#   $WEATHER_TRAY_CONFIG                         (env var, highest priority)
+#   ~/.config/weather-tray/config.toml           (standard XDG location)
+#   <repo>/widget/config.toml                    (alongside the script)
+#
+# All values are optional. Anything missing falls back to the defaults shown.
+
+# Base URL of the weather server. The widget hits {server_url}/api/v1/current
+# every refresh interval, and "Open dashboard" opens this URL in the browser.
+server_url = "http://localhost:8005"
+
+# How often to refresh, in seconds. 30 matches the legacy widget's cadence.
+refresh_seconds = 30

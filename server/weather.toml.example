@@ -1,0 +1,81 @@
+# Jones Big Ass Weather Dashboard — server config
+# Copy to weather.toml and edit for your deployment.
+
+[server]
+host = "0.0.0.0"
+port = 8005
+db_path = "weather.db"
+dashboard_dir = "../dashboard"   # relative to the working directory the server is launched from
+branding_path = "../branding.toml"  # ditto; falls back to branding.toml.example if missing
+
+[logger]
+interval_seconds = 60
+http_timeout_seconds = 10
+
+[cache]
+ttl_seconds = 5
+
+# Set [development] fixture_dir to a directory containing outdoor.json,
+# indoor.json, basement.json to read from local fixtures instead of
+# polling real ESP32s — useful for offline development. Comment out
+# (or remove) the whole [development] block to enable real HTTP polling
+# of the IPs in the [[sensors]] entries below.
+[development]
+fixture_dir = "fixtures"
+
+# Optional internet-sourced regional conditions (wind etc.). The server is
+# OFFLINE-FIRST: if this whole section is removed, or enabled = false, or there
+# is simply no internet, everything else keeps working unchanged and the
+# `external` block of /api/v1/current is null. Nothing here is required.
+#
+# provider:
+#   "open-meteo"   — keyless, global, point-specific (best_match → HRRR in US).
+#                    Recommended default: most robust for an arbitrary location.
+#   "nws"          — keyless, real US station observations. Auto-finds the
+#                    nearest station, or set station_id to pin one.
+#   "wunderground" — a specific PWS by station_id; needs a free member api_key.
+#
+# fetch: which fields to request (open-meteo supports all of these).
+# cross_check: compare the model vs the nearest NWS station and flag
+#   confidence = "low" when they diverge sharply.
+[external]
+enabled = true
+provider = "open-meteo"
+refresh_interval_seconds = 300
+http_timeout_seconds = 8
+fetch = ["wind", "cloud", "uv", "precip", "visibility"]
+cross_check = false
+# station_id = "KCOELIZA85"   # nws (pin a station) or wunderground (required)
+# api_key = "..."             # wunderground only (free; never the website key)
+# lat_override = 0.0          # default: outdoor GPS, then its fallback_lat/lon
+# lon_override = 0.0
+
+[[sensors]]
+id = "outdoor"
+role = "outdoor"
+ip = "192.168.1.60"
+has_gps = true
+has_light = true
+online_threshold_seconds = 120
+temp_offset_c = -0.5
+fallback_altitude_m = 1609.3   # used for sea-level adjustment if GPS has no fix
+fallback_lat = 0.0             # used by astronomy if GPS has no fix
+fallback_lon = 0.0             # used by astronomy if GPS has no fix
+
+[[sensors]]
+id = "indoor"
+role = "indoor"
+ip = "192.168.1.61"
+has_gps = false
+has_light = false
+online_threshold_seconds = 120
+temp_offset_c = 0.0
+
+[[sensors]]
+id = "basement"
+role = "indoor"
+ip = "192.168.1.63"
+has_gps = false
+has_light = false
+online_threshold_seconds = 300
+temp_offset_c = 0.0

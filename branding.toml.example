@@ -1,0 +1,48 @@
+# Jones Big Ass Weather Dashboard — branding / copy config
+#
+# Copy this file to branding.toml at the repo root and edit. The live
+# branding.toml is gitignored so your edits never get committed; this
+# .example file is the schema reference and ships with placeholders.
+#
+# The server reads this once at startup and exposes it at
+# /api/v1/branding. The dashboard fetches it on page load and populates
+# every [BRANDING] slot in the UI. No hot-reload — restart the server
+# after editing.
+
+# ── Header (top of the page, below the title) ──────────────────────────
+[header]
+# Used only when [taglines.rotating] below is missing or empty.
+tagline = "[BRANDING — rotating tagline goes here]"
+
+# ── Footer (bottom of the page, between version markers) ───────────────
+[footer]
+text = "[BRANDING — footer reference goes here]"
+
+# ── Browser tab title ──────────────────────────────────────────────────
+[browser_title]
+text = "JBA-WX // Weather Station"
+
+# ── Sensor offline-state copy ──────────────────────────────────────────
+# Shown inside each sensor panel when that sensor is offline. Pick
+# friendly placeholder copy that doesn't look like stale data.
+[states]
+outdoor_offline = "[BRANDING — outdoor offline copy]"
+indoor_offline  = "[BRANDING — indoor offline copy]"
+basement_offline = "[BRANDING — basement offline copy]"
+loading = "[BRANDING — loading copy]"
+
+# ── Error copy ─────────────────────────────────────────────────────────
+# Shown if the dashboard can't reach /api/v1/current.
+[error]
+generic = "[BRANDING — generic error copy]"
+
+# ── Rotating taglines ──────────────────────────────────────────────────
+# If this array has any entries, one is picked at random on each page
+# load and shown in the header tagline slot. Leave it empty (or remove
+# the table entirely) to use [header.tagline] as a static string.
+[taglines]
+rotating = [
+    "[BRANDING — first rotating tagline]",
+    "[BRANDING — second rotating tagline]",
+    "[BRANDING — third rotating tagline]",
+]

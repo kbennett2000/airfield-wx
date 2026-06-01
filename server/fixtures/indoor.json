@@ -1,0 +1,8 @@
+{
+  "temperature_c": 22.4,
+  "humidity_pct": 38.7,
+  "pressure_pa": 80520,
+  "rssi_dbm": -55,
+  "uptime_s": 412300,
+  "free_heap_bytes": 182400
+}
