@@ -32,7 +32,9 @@ PORT   ?= 8005
 # the server venv doesn't expose.
 SYSPY := /usr/bin/python3
 
-.PHONY: help install config dev serve test test-integration test-all lint typecheck check widget data-refresh screenshots clean distclean
+.PHONY: help install config dev serve test test-integration test-all lint typecheck check widget data-refresh screenshots demo-snapshots demo-build demo-serve clean distclean
+
+DEMO_PORT ?= 8090
 
 OURAIRPORTS_DIR := server/weather_server/data/ourairports
 OURAIRPORTS_URL := https://davidmegginson.github.io/ourairports-data
@@ -89,6 +91,15 @@ screenshots: ## Regenerate the dashboard screenshots in docs/assets/screenshots/
 	# falls back to a system Chrome/Chromium, so don't fail the target here.
 	-$(VPY) -m playwright install chromium
 	$(VPY) scripts/screenshots/capture.py
+
+demo-snapshots: ## Regenerate the frozen synthetic demo snapshots in demo/snapshots/ (tooling)
+	$(VPY) demo/generate_snapshots.py
+
+demo-build: ## Assemble the static demo site into demo/public/ (rebuilds from dashboard/ + snapshots)
+	$(VPY) demo/build.py
+
+demo-serve: ## Serve the built demo locally for review (after demo-build)
+	cd demo/public && ../../$(VENV)/bin/python -m http.server $(DEMO_PORT)
 
 clean: ## Remove pycache + tool caches (preserves venv and db)
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +

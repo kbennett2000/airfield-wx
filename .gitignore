@@ -33,6 +33,11 @@ widget/config.toml
 # Local Claude Code settings (personal; committed settings.json stays tracked)
 .claude/settings.local.json
 
+# Demo: the assembled static site is a build artifact (rebuilt by demo/build.py);
+# the frozen snapshots + sources are committed. Vercel CLI/MCP linkage dir too.
+demo/public/
+.vercel/
+
 # Editor / OS cruft
 .DS_Store
 .idea/

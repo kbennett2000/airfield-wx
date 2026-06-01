@@ -1,0 +1,228 @@
+{
+  "server_time": "2026-06-01T22:43:24.086362Z",
+  "sensors": {
+    "outdoor": {
+      "sensor_id": "outdoor",
+      "role": "outdoor",
+      "online": true,
+      "reading_timestamp": "2026-06-01T22:43:23Z",
+      "age_seconds": 1.1,
+      "raw": {
+        "temperature_c": 13.0,
+        "humidity_pct": 48.0,
+        "pressure_pa": 80110.0,
+        "lux": null,
+        "ir": null,
+        "visible": null,
+        "full": null,
+        "wind_speed_ms": 6.0,
+        "wind_gust_ms": 8.7,
+        "wind_direction_deg": 340.0
+      },
+      "calibration": {
+        "temp_offset_c": 0.0,
+        "wind_vane_offset_deg": 0.0
+      },
+      "derived": {
+        "temperature_c": 13.0,
+        "temperature_f": 55.4,
+        "feels_like_c": 13.0,
+        "feels_like_f": 55.4,
+        "dewpoint_c": 2.2393206113930804,
+        "dewpoint_f": 36.03077710050754,
+        "absolute_humidity_g_m3": 5.441325895600904,
+        "pressure_station_hpa": 801.1,
+        "pressure_station_inhg": 23.656483,
+        "pressure_sealevel_hpa": 1014.8763137410308,
+        "pressure_sealevel_inhg": 29.96929754477264,
+        "altimeter_setting_hpa": 1018.0716994771904,
+        "altimeter_setting_inhg": 30.063657285561433,
+        "wind_direction_true_deg": 340.0,
+        "wind_chill_c": 13.0,
+        "wind_chill_f": 55.4,
+        "apparent_temperature_c": 7.16791262220841,
+        "apparent_temperature_f": 44.902242719975135,
+        "beaufort_force": 4,
+        "beaufort_description": "Moderate breeze",
+        "thsw_index_c": null,
+        "thsw_index_f": null,
+        "et0_mm_hour": null,
+        "wet_bulb_c": 7.471888141512647,
+        "wet_bulb_f": 45.44939865472276,
+        "humidex_c": 13.0,
+        "humidex_f": 55.4,
+        "frost_point_c": 1.9684378188802758,
+        "frost_point_f": 35.543188073984496,
+        "saturation_vapor_pressure_hpa": 14.956317086193929,
+        "vapor_pressure_hpa": 7.1790322013730865,
+        "vapor_pressure_deficit_kpa": 0.7777284884820842,
+        "mixing_ratio_g_kg": 5.624165174361,
+        "specific_humidity_g_kg": 5.592710844797419,
+        "air_density_kg_m3": 0.9719899836555757,
+        "pressure_altitude_m": 1937.1057168215425,
+        "pressure_altitude_ft": 6355.33371658069,
+        "density_altitude_m": 2345.4083993973663,
+        "density_altitude_ft": 7694.909446810974,
+        "cloud_base_m": 1345.084923575865,
+        "cloud_base_ft": 4413.0082794307245,
+        "sky": null
+      },
+      "location": {
+        "lat": 39.0,
+        "lon": -105.0,
+        "altitude_m": 1981.2,
+        "altitude_ft": 6499.999999974,
+        "satellites": 9,
+        "speed_kmh": null,
+        "course_deg": null,
+        "dms": "39\u00b000'00.0\"N  105\u00b000'00.0\"W",
+        "maidenhead": "DM79ma"
+      },
+      "device": {
+        "rssi_dbm": -57,
+        "uptime_s": 84320,
+        "free_heap_bytes": 178000
+      }
+    }
+  },
+  "astronomy": {
+    "server_time": "2026-06-01T22:43:24.086362Z",
+    "local_time": "2026-06-01T16:43:24.086362-06:00",
+    "timezone": "America/Denver",
+    "reference_location": {
+      "lat": 39.0,
+      "lon": -105.0,
+      "source": "outdoor_sensor"
+    },
+    "sun": {
+      "altitude_deg": 39.499564573843365,
+      "azimuth_deg": 267.6893604867929,
+      "is_daytime": true,
+      "sunrise": "2026-06-01T05:37:42.742236-06:00",
+      "sunset": "2026-06-01T20:20:54.227811-06:00",
+      "solar_noon": "2026-06-01T12:59:18.485024-06:00",
+      "dawn": "2026-06-01T05:06:15.536057-06:00",
+      "dusk": "2026-06-01T20:52:21.433990-06:00",
+      "day_length_seconds": 52991.485575,
+      "seconds_to_sunset": 13050.141449,
+      "seconds_to_sunrise": null,
+      "nautical_dawn": "2026-06-01T04:26:54.081877-06:00",
+      "nautical_dusk": "2026-06-01T21:31:42.888170-06:00",
+      "astronomical_dawn": "2026-06-01T03:42:20.983562-06:00",
+      "astronomical_dusk": "2026-06-01T22:16:15.986485-06:00",
+      "golden_hour_dawn": "2026-06-01T06:17:04.611743-06:00",
+      "golden_hour_dusk": "2026-06-01T19:41:32.358305-06:00",
+      "blue_hour_dawn": "2026-06-01T05:18:38.881291-06:00",
+      "blue_hour_dusk": "2026-06-01T20:39:58.088756-06:00",
+      "sunrise_azimuth_deg": 60.53298778980101,
+      "sunset_azimuth_deg": 299.9053384541206,
+      "shadow_multiplier": 1.2131157875200875,
+      "day_length_change_seconds": 67.171875,
+      "season": "Spring",
+      "next_solar_event": "june_solstice",
+      "next_solar_event_time": "2026-06-20T18:00:00-06:00",
+      "seconds_to_next_solar_event": 1646195.913638
+    },
+    "moon": {
+      "altitude_deg": -57.43345651591167,
+      "azimuth_deg": 81.72467544330736,
+      "distance_km": 405460.2603979645,
+      "illumination_pct": 97.4715649099869,
+      "phase_name": "Full Moon",
+      "phase_icon": "\ud83c\udf15",
+      "moonrise": "2026-05-31T21:17:36.937059-06:00",
+      "moonset": "2026-06-01T06:11:22.234632-06:00",
+      "always_up": false,
+      "always_down": false,
+      "next_new_moon": "2026-06-14T20:17:00-06:00",
+      "next_full_moon": "2026-06-01T14:00:00-06:00"
+    }
+  },
+  "external": {
+    "provider": "metar",
+    "source": "metar:DEMO (simulated)",
+    "station_id": "DEMO",
+    "distance_km": 2.4,
+    "observed_at": "2026-06-01T22:40:24.086010Z",
+    "fetched_at": "2026-06-01T22:43:24.086010Z",
+    "age_seconds": 180.0,
+    "stale": false,
+    "confidence": null,
+    "wind_speed_ms": null,
+    "wind_speed_kmh": null,
+    "wind_speed_mph": null,
+    "wind_speed_kt": null,
+    "wind_gust_ms": null,
+    "wind_gust_kmh": null,
+    "wind_gust_mph": null,
+    "wind_direction_deg": null,
+    "wind_direction_cardinal": null,
+    "cloud_cover_pct": null,
+    "uv_index": null,
+    "precip_mm": null,
+    "visibility_m": 6437.0,
+    "visibility_km": 6.4,
+    "metar_raw": "DEMO 011853Z 34010KT 4SM BR BKN018 12/08 A2995 RMK SIMULATED DATA",
+    "sky_layers": [
+      {
+        "cover": "SCT",
+        "base_ft_agl": 1200
+      },
+      {
+        "cover": "BKN",
+        "base_ft_agl": 1800
+      }
+    ],
+    "ceiling_ft_agl": 1800,
+    "visibility_sm": 4.0,
+    "flight_category": "MVFR",
+    "altimeter_inhg": 29.95,
+    "altimeter_hpa": 1014.0,
+    "altimeter_diff_inhg": -0.11,
+    "temp_c": 14.0,
+    "dewpoint_c": 3.0
+  },
+  "airport": {
+    "ident": "DEMO",
+    "name": null,
+    "type": null,
+    "field_elevation_ft": 6500.0,
+    "distance_nm": null,
+    "source": "manual",
+    "magnetic_variation_deg": 7.4,
+    "magnetic_model": "WMM2025",
+    "runways": [
+      {
+        "le_ident": "16",
+        "he_ident": "34",
+        "le_heading_true_deg": 167.4,
+        "he_heading_true_deg": 347.4,
+        "le_heading_mag_deg": 160.0,
+        "he_heading_mag_deg": 340.0,
+        "length_ft": 4200.0,
+        "surface": "turf"
+      }
+    ],
+    "runway_solution": {
+      "favored": "34",
+      "ends": [
+        {
+          "ident": "16",
+          "headwind_kt": -11.6,
+          "crosswind_kt": 1.5,
+          "crosswind_side": "R",
+          "tailwind": true,
+          "crosswind_exceeds_limit": false
+        },
+        {
+          "ident": "34",
+          "headwind_kt": 11.6,
+          "crosswind_kt": 1.5,
+          "crosswind_side": "L",
+          "tailwind": false,
+          "crosswind_exceeds_limit": false
+        }
+      ]
+    }
+  }
+}

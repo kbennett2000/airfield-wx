@@ -1,0 +1,99 @@
+{
+  "sensor_id": "outdoor",
+  "from": "2026-05-31T22:43:23Z",
+  "to": "2026-06-01T22:43:23Z",
+  "bucket_seconds": 300,
+  "row_count": 10,
+  "rows": [
+    {
+      "timestamp": "2026-06-01T21:55:00Z",
+      "temperature_c": 13.39,
+      "temperature_f": 56.102000000000004,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 801.09,
+      "pressure_sealevel_hpa": 1014.5369710092125,
+      "dewpoint_c": 2.5972052339684137
+    },
+    {
+      "timestamp": "2026-06-01T22:00:00Z",
+      "temperature_c": 14.809999999999999,
+      "temperature_f": 58.658,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.972,
+      "pressure_sealevel_hpa": 1013.2066297907692,
+      "dewpoint_c": 3.899885295067515
+    },
+    {
+      "timestamp": "2026-06-01T22:05:00Z",
+      "temperature_c": 15.833333333333334,
+      "temperature_f": 60.5,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.6516666666668,
+      "pressure_sealevel_hpa": 1011.9587674002817,
+      "dewpoint_c": 4.838294828490302
+    },
+    {
+      "timestamp": "2026-06-01T22:10:00Z",
+      "temperature_c": 15.75,
+      "temperature_f": 60.35,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.2725,
+      "pressure_sealevel_hpa": 1011.5478693870551,
+      "dewpoint_c": 4.761888899595014
+    },
+    {
+      "timestamp": "2026-06-01T22:15:00Z",
+      "temperature_c": 14.466666666666667,
+      "temperature_f": 58.04,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 799.992,
+      "pressure_sealevel_hpa": 1012.2509383328596,
+      "dewpoint_c": 3.584973700376436
+    },
+    {
+      "timestamp": "2026-06-01T22:20:00Z",
+      "temperature_c": 12.61,
+      "temperature_f": 54.698,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 799.91,
+      "pressure_sealevel_hpa": 1013.6959469485457,
+      "dewpoint_c": 1.8813901651868106
+    },
+    {
+      "timestamp": "2026-06-01T22:25:00Z",
+      "temperature_c": 10.926666666666668,
+      "temperature_f": 51.668,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.0853333333334,
+      "pressure_sealevel_hpa": 1015.3422133648685,
+      "dewpoint_c": 0.3359507499326504
+    },
+    {
+      "timestamp": "2026-06-01T22:30:00Z",
+      "temperature_c": 10.05,
+      "temperature_f": 50.09,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.4225,
+      "pressure_sealevel_hpa": 1016.5195595073662,
+      "dewpoint_c": -0.4692402255471742
+    },
+    {
+      "timestamp": "2026-06-01T22:35:00Z",
+      "temperature_c": 10.46,
+      "temperature_f": 50.828,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 800.793,
+      "pressure_sealevel_hpa": 1016.6387671710978,
+      "dewpoint_c": -0.09263916268513939
+    },
+    {
+      "timestamp": "2026-06-01T22:40:00Z",
+      "temperature_c": 12.24,
+      "temperature_f": 54.032,
+      "humidity_pct": 48.0,
+      "pressure_station_hpa": 801.0666666666667,
+      "pressure_sealevel_hpa": 1015.4735320182863,
+      "dewpoint_c": 1.5417727594905424
+    }
+  ]
+}

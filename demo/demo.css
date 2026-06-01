@@ -1,0 +1,82 @@
+/* airfield-wx public demo — banner + scenario switcher.
+ * Distinct violet so it never blends with the amber UNOFFICIAL caution banner;
+ * both are visible at once. Demo-only stylesheet (not part of the shipping UI). */
+
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+  padding: 10px 16px;
+  border: 1px solid #b58bff;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(181, 139, 255, 0.18), rgba(227, 107, 255, 0.12));
+  color: #e9d8ff;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.demo-banner .demo-dot {
+  color: #e36bff;
+}
+
+.demo-banner small {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  color: #c8b3e6;
+}
+
+.demo-banner a {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.demo-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  font-family: 'IBM Plex Sans Condensed', system-ui, sans-serif;
+}
+
+.demo-switch-label {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #9fb3c4;
+}
+
+.demo-switch-btn {
+  cursor: pointer;
+  padding: 5px 12px;
+  border: 1px solid #2a3a49;
+  border-radius: 999px;
+  background: #0d151e;
+  color: #9fb3c4;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+}
+
+.demo-switch-btn:hover {
+  border-color: #3d4d5b;
+  color: #e9f1f6;
+}
+
+.demo-switch-btn.active {
+  border-color: #b58bff;
+  background: rgba(181, 139, 255, 0.16);
+  color: #fff;
+}

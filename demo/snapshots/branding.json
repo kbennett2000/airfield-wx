@@ -1,0 +1,25 @@
+{
+  "header": {
+    "title": "AIRFIELD-WX",
+    "subtitle": "DEMO \u2014 Example Field",
+    "system_mark": "DEMO",
+    "tagline": "Live demo \u2014 simulated data for a fictional field"
+  },
+  "footer": {
+    "text": "Demo \u2014 simulated data. Not a real station. Not for flight planning.",
+    "system_line": "airfield-wx demo"
+  },
+  "browser_title": {
+    "text": "airfield-wx \u2014 demo"
+  },
+  "states": {
+    "outdoor_offline": "Outdoor sensor offline",
+    "loading": "Loading\u2026"
+  },
+  "error": {
+    "generic": "Can't reach the station."
+  },
+  "taglines": {
+    "rotating": []
+  }
+}
