@@ -52,12 +52,29 @@ def parse_outdoor(text: str) -> dict[str, Any] | None:
     return _outdoor_to_payload(raw)
 
 
+def parse_wind_station(text: str) -> dict[str, Any] | None:
+    """Adapt a separate wind station's /data payload (ADR-0006 / topology 3).
+
+    The wind station is anemometer-only — it emits the same wind wire keys as
+    the outdoor unit (`windSpeed`/`windGust`/`windDirection`) plus device
+    telemetry, and nothing else (no BME280, no GPS). Wind direction is the raw
+    vane frame; the vane offset is applied server-side by the resolver. NaN /
+    absent values are dropped; an error envelope becomes None."""
+    raw = _safe_load(text)
+    if raw is None or "error" in raw:
+        return None
+    payload: dict[str, Any] = {}
+    _put_wind_fields(payload, raw)
+    _put_device_fields(payload, raw)
+    return payload
+
+
 def parse(text: str, role: str) -> dict[str, Any] | None:
-    """Dispatch on sensor role. Today the only logged/polled role is
-    `outdoor`; the `role` argument is the extension seam for additional
-    station types (e.g. a separate wind station — ADR-0006/Cycle 10), which
-    will register their own parser here. Unknown roles fall back to the
-    outdoor adapter."""
+    """Dispatch on sensor role. `wind_station` uses the anemometer-only adapter
+    (ADR-0006); every other role (the outdoor unit, and any unknown role) uses
+    the outdoor adapter."""
+    if role == "wind_station":
+        return parse_wind_station(text)
     return parse_outdoor(text)
 
 
@@ -92,10 +109,7 @@ def _outdoor_to_payload(raw: dict[str, Any]) -> dict[str, Any]:
     if ir is not None and visible is not None:
         payload["full_spectrum"] = int(ir) + int(visible)
 
-    # Local anemometer (firmware already emits m/s; degrees in raw vane frame).
-    _put_float(payload, "wind_speed_ms", raw.get("windSpeed"))
-    _put_float(payload, "wind_gust_ms", raw.get("windGust"))
-    _put_float(payload, "wind_direction_deg", raw.get("windDirection"))
+    _put_wind_fields(payload, raw)
 
     _put_float(payload, "latitude", raw.get("latitude"))
     _put_float(payload, "longitude", raw.get("longitude"))
@@ -104,13 +118,28 @@ def _outdoor_to_payload(raw: dict[str, Any]) -> dict[str, Any]:
     _put_float(payload, "course_deg", raw.get("course"))
     _put_int(payload, "satellites", raw.get("satellites"))
 
+    _put_device_fields(payload, raw)
+
+    return payload
+
+
+def _put_wind_fields(payload: dict[str, Any], raw: dict[str, Any]) -> None:
+    """Map the shared wind wire keys → internal raw wind fields. Used by both
+    the outdoor and wind-station adapters so the mapping lives in one place
+    (firmware already emits m/s; degrees in the raw vane frame)."""
+    _put_float(payload, "wind_speed_ms", raw.get("windSpeed"))
+    _put_float(payload, "wind_gust_ms", raw.get("windGust"))
+    _put_float(payload, "wind_direction_deg", raw.get("windDirection"))
+
+
+def _put_device_fields(payload: dict[str, Any], raw: dict[str, Any]) -> None:
+    """Map the shared device-telemetry wire keys → internal fields (uptime
+    ms→s). Common to every station type."""
     _put_int(payload, "rssi_dbm", raw.get("rssi"))
     uptime_ms = _clean_int(raw.get("uptime"))
     if uptime_ms is not None:
         payload["uptime_s"] = uptime_ms // 1000
     _put_int(payload, "free_heap_bytes", raw.get("freeHeap"))
-
-    return payload
 
 
 def _put_float(payload: dict[str, Any], key: str, raw: Any) -> None:

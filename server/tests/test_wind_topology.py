@@ -11,9 +11,11 @@ inserted directly — full control over wind values and freshness.
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from weather_server import db as db_module
@@ -172,6 +174,115 @@ def test_station_source_feeds_derivations(tmp_path: Path, monkeypatch) -> None: 
     # The wind station is a data source, not a display sensor.
     assert "windy" not in body["sensors"]
     assert tc.get("/api/v1/current/windy").status_code == 404
+
+
+def test_stale_station_wind_nulls_derived_and_runway(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # The freshness guard applies over the real wind_readings ingest table too:
+    # a stale wind-station row nulls the wind-derived fields + runway solution.
+    app = _make_app(
+        tmp_path, monkeypatch, wind_source="windy", max_age_s=90,
+        outdoor_has_wind=False, station=True,
+    )
+    now = int(time.time())
+    with TestClient(app) as tc:
+        _insert_outdoor(tc.app.state.db, now, wind=False)
+        _insert_wind_station(tc.app.state.db, now - 1000)  # well past max_age_s
+        body = tc.get("/api/v1/current").json()
+
+    outdoor = body["sensors"]["outdoor"]
+    assert outdoor["derived"]["wind_direction_true_deg"] is None
+    assert outdoor["derived"]["wind_chill_c"] is None
+    assert body["airport"]["runway_solution"] is None
+
+
+# ── produce → consume through the real logger loop (integration) ─────────────
+
+_FIXTURE_TOML = """
+[server]
+host = "127.0.0.1"
+port = 8005
+db_path = "{db_path}"
+branding_path = "{branding_path}"
+
+[logger]
+interval_seconds = 1
+http_timeout_seconds = 1
+
+[cache]
+ttl_seconds = 5
+
+[development]
+fixture_dir = "{fixture_dir}"
+
+[wind]
+source = "windy"
+max_age_s = 90
+
+[airport]
+ident = "KSEA"
+crosswind_limit_kt = 15
+
+[[sensors]]
+id = "outdoor"
+role = "outdoor"
+ip = "127.0.0.1:1"
+has_gps = true
+has_wind = false
+online_threshold_seconds = 120
+
+[[sensors]]
+id = "windy"
+role = "wind_station"
+ip = "127.0.0.1:1"
+has_wind = true
+wind_vane_offset_deg = 0.0
+online_threshold_seconds = 120
+"""
+
+
+@pytest.mark.integration
+def test_wind_logger_produces_row_consumed_by_current(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The full producing→consuming path: the wind logger loop polls the
+    station fixture and writes a wind_readings row, which the resolver then
+    surfaces on /current (runway populated). No direct DB injection."""
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    (fixtures / "outdoor.json").write_text(
+        json.dumps([{
+            "temperature_c": 16.0, "humidity_pct": 55.0, "pressure_pa": 100000,
+            "latitude": _LAT, "longitude": _LON, "altitude_m": _ALT, "satellites": 9,
+        }])
+    )
+    (fixtures / "windy.json").write_text(
+        json.dumps({"wind_speed_ms": 5.0, "wind_gust_ms": 8.0, "wind_direction_deg": 270.0})
+    )
+    cfg = tmp_path / "weather.toml"
+    cfg.write_text(
+        _FIXTURE_TOML.format(
+            db_path=str(tmp_path / "weather.db"),
+            branding_path=str(BRANDING_EXAMPLE),
+            fixture_dir=str(fixtures),
+        )
+    )
+    monkeypatch.setenv("WEATHER_CONFIG", str(cfg))
+    from weather_server.main import create_app
+
+    app = create_app()
+    with TestClient(app) as tc:
+        # Wait for the wind logger to poll-and-write a row that /current resolves.
+        deadline = time.monotonic() + 10.0
+        body: dict = {}
+        while time.monotonic() < deadline:
+            body = tc.get("/api/v1/current").json()
+            if body["airport"]["runway_solution"] is not None:
+                break
+            time.sleep(0.1)
+
+        assert body["airport"]["runway_solution"] is not None
+        # The row really was logged (not injected).
+        assert db_module.latest_wind_reading(tc.app.state.db) is not None
+        # And the derived true direction came from the station's wind.
+        assert body["sensors"]["outdoor"]["derived"]["wind_direction_true_deg"] == 270.0
 
 
 # ── topology-agnostic contract ───────────────────────────────────────────────

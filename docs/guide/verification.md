@@ -50,6 +50,18 @@ Open `http://<server>:8005/dashboard/`.
 - [ ] With **no anemometer / no wind** (`has_wind = false` or calm with no reading): the wind values
   show `—` and there's no favored highlight, **but the runways still draw**. Nothing errors.
 
+### Separate wind station (topology 3 — only if `[wind] source` names a station)
+
+- [ ] **It logs.** With `wind_station.ino` flashed and `[wind] source = "<id>"`, the station's wind
+  rows accumulate: `curl -s http://<server>:8005/api/v1/health` shows it (or check the DB:
+  `sqlite3 weather.db 'SELECT COUNT(*) FROM wind_readings'` climbs).
+- [ ] **Wind resolves from it.** `/api/v1/current` shows `sensors.outdoor.derived.wind_direction_true_deg`
+  and `airport.runway_solution` populated **even though the outdoor unit has no anemometer**
+  (`has_wind = false`). The wind station has no `/current/<id>` view — it's a data source, not a display
+  sensor (a GET returns 404).
+- [ ] **Stale ⇒ nulled.** If the wind station stops reporting for longer than `[wind] max_age_s`, the
+  wind values and the favored runway null out (a dead anemometer never reads as current).
+
 ## 4. METAR feed (violet) — only if `[external]` is enabled
 
 With `provider = "metar"` (and internet):

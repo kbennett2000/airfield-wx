@@ -69,13 +69,71 @@ def test_parse_outdoor_error_envelope_returns_none() -> None:
 
 
 def test_parse_dispatch_falls_back_to_outdoor() -> None:
-    # parse() dispatches on role. Today the only logged/polled role is
-    # `outdoor`; unknown roles fall back to the outdoor adapter (the
-    # extension seam for Cycle 10's wind station — ADR-0006).
+    # parse() dispatches on role. Unknown roles (anything but `wind_station`)
+    # fall back to the outdoor adapter.
     out = wire_format.parse(_read("outdoor_happy.json"), "outdoor")
     aux = wire_format.parse(_read("outdoor_happy.json"), "aux")
     assert out is not None and "altitude_m" in out
     assert aux == out
+
+
+# ── wind station (ADR-0006 / topology 3) ─────────────────────────────────────
+
+
+def test_parse_wind_station_happy_sample() -> None:
+    payload = wire_format.parse_wind_station(_read("wind_station_happy.json"))
+    assert payload is not None
+    # Same wind wire keys as outdoor → same internal raw wind fields (m/s).
+    assert payload["wind_speed_ms"] == pytest.approx(5.2)
+    assert payload["wind_gust_ms"] == pytest.approx(8.1)
+    assert payload["wind_direction_deg"] == pytest.approx(270.0)
+    assert 0.0 <= payload["wind_direction_deg"] < 360.0
+    # Gust ≥ mean when both present.
+    assert payload["wind_gust_ms"] >= payload["wind_speed_ms"]
+    # Device telemetry carried through (uptime ms → s).
+    assert payload["rssi_dbm"] == -58
+    assert payload["uptime_s"] == 42100
+
+
+def test_parse_wind_station_is_anemometer_only() -> None:
+    # No BME280 / GPS keys ever appear — the station reports wind + device only.
+    payload = wire_format.parse_wind_station(_read("wind_station_happy.json"))
+    assert payload is not None
+    for absent in (
+        "temperature_c",
+        "humidity_pct",
+        "pressure_pa",
+        "latitude",
+        "longitude",
+        "altitude_m",
+        "satellites",
+    ):
+        assert absent not in payload
+
+
+def test_parse_wind_station_nan_dropped() -> None:
+    payload = wire_format.parse_wind_station(_read("wind_station_nan.json"))
+    assert payload is not None
+    for wind_field in ("wind_speed_ms", "wind_gust_ms", "wind_direction_deg"):
+        assert wind_field not in payload, f"{wind_field} should drop when wire value is nan"
+    # Device telemetry alongside the NaN wind survives.
+    assert payload["rssi_dbm"] == -58
+    assert payload["uptime_s"] == 42100
+
+
+def test_parse_wind_station_error_envelope_returns_none() -> None:
+    assert wire_format.parse_wind_station('{"error":"sensor failure"}') is None
+
+
+def test_parse_dispatch_routes_wind_station_role() -> None:
+    # role="wind_station" uses the anemometer-only adapter, even if the blob
+    # happens to carry outdoor keys — only wind + device survive, no GPS/thermo.
+    payload = wire_format.parse(_read("outdoor_wind_happy.json"), "wind_station")
+    assert payload is not None
+    assert payload["wind_speed_ms"] == pytest.approx(5.2)
+    assert payload["wind_direction_deg"] == pytest.approx(270.0)
+    assert "temperature_c" not in payload
+    assert "latitude" not in payload
 
 
 def test_parse_malformed_json_returns_none() -> None:

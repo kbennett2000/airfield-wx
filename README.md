@@ -37,6 +37,11 @@ The vane's north alignment is a one-time per-install **config calibration** (`wi
 not a code constant. Full wiring, pinout, flashing, and the calibration procedure are in the
 **[hardware guide](docs/guide/hardware.md)**.
 
+**Anemometer can mount three ways** (ADR-0006): all-in-one (default), a remote anemometer cabled to the
+same ESP32, or — where wind and thermo can't co-locate — an opt-in **separate wind station** (a second
+ESP32 + anemometer running `wind_station.ino`, no GPS, logged). A `[wind] source` config knob selects
+it; a freshness guard nulls stale wind (and the runway solution) so a dead sensor never reads as current.
+
 ## Quick start (demo data, no hardware)
 
 ```bash

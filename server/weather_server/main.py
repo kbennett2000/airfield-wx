@@ -28,7 +28,7 @@ from .config import load_config
 from .db import init_db
 from .external import ExternalStore
 from .external.task import external_fetch_loop
-from .logger_task import outdoor_logger_loop
+from .logger_task import outdoor_logger_loop, wind_logger_loop
 from .routes import (
     airport,
     astronomy,
@@ -81,10 +81,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.external_task = external_task
 
+    tasks = [logger_task, external_task]
+
+    # Separate wind station (ADR-0006 / topology 3): a logged poll-and-write
+    # loop, spawned only when a wind station is configured. In the default
+    # outdoor-wind topologies this loop never runs.
+    wind_logger_task: asyncio.Task[None] | None = None
+    if config.wind.source != "outdoor":
+        wind_logger_task = asyncio.create_task(wind_logger_loop(config, source, db_conn))
+        tasks.append(wind_logger_task)
+    app.state.wind_logger_task = wind_logger_task
+
     try:
         yield
     finally:
-        for task in (logger_task, external_task):
+        for task in tasks:
             task.cancel()
             try:
                 await task

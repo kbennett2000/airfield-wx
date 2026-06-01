@@ -14,7 +14,7 @@ import sqlite3
 import time
 
 from .config import Config
-from .db import insert_outdoor_reading, latest_outdoor_timestamp
+from .db import insert_outdoor_reading, insert_wind_reading, latest_outdoor_timestamp
 from .sensors import SensorSource
 
 log = logging.getLogger(__name__)
@@ -54,6 +54,46 @@ async def outdoor_logger_loop(
             raise
         except Exception:
             log.exception("outdoor logger iteration failed")
+        await asyncio.sleep(interval)
+
+
+async def wind_logger_loop(
+    config: Config,
+    source: SensorSource,
+    db: sqlite3.Connection,
+) -> None:
+    """Poll-and-log the separate wind station into wind_readings (ADR-0006 /
+    topology 3). Mirrors outdoor_logger_loop, minus the fixture prefill (the
+    wind station has no historical fixture sweep). Inert unless a wind station
+    is configured (wind.source != "outdoor"): in the default all-in-one /
+    remote-cable topologies wind rides the outdoor payload and no row is logged
+    here."""
+    if config.wind.source == "outdoor":
+        return
+    wind = config.sensor_by_id(config.wind.source)
+    if wind is None:
+        log.warning(
+            "wind source %r names no configured sensor; wind logger exiting",
+            config.wind.source,
+        )
+        return
+
+    interval = config.logger.interval_seconds
+
+    while True:
+        try:
+            payload = await source.poll(wind)
+            if payload is not None:
+                ts = int(time.time())
+                insert_wind_reading(db, timestamp=ts, payload=payload)
+                log.debug("wind logger wrote row at ts=%s", ts)
+            else:
+                log.info("wind poll returned offline; no row written")
+        except asyncio.CancelledError:
+            log.info("wind logger cancelled")
+            raise
+        except Exception:
+            log.exception("wind logger iteration failed")
         await asyncio.sleep(interval)
 
 

@@ -154,6 +154,23 @@ With nothing set, the nearest airport is resolved from OurAirports using the out
     surface = "turf"
   ```
 
+### `[wind]` — flexible anemometer topology
+Where field wind is read from, and when it goes stale (decision 16 / ADR-0006; see the
+[three mounting topologies](hardware.md#mounting-topologies-adr-0006)).
+
+- `source` — `"outdoor"` *(default)*: wind rides the outdoor payload (all-in-one or remote-cable). Or
+  the **id of a wind-station `[[sensors]]` entry** to read wind from a dedicated, logged station.
+- `max_age_s` — freshness guard (default `90`, sensible range ~60–120). When the latest wind is older
+  than this, the wind-derived fields **and the favored-runway solution are nulled** — a dead anemometer
+  never shows stale wind as current, and never drives a runway recommendation. Applies to both
+  topologies.
+
+```toml
+[wind]
+source = "outdoor"   # or e.g. "wind" to use the wind-station entry below
+max_age_s = 90
+```
+
 ### `[[sensors]]`
 One block per sensor. The outdoor one carries the aviation fields:
 
@@ -166,6 +183,25 @@ One block per sensor. The outdoor one carries the aviation fields:
 - `has_light = false` — there is no light sensor.
 - `temp_offset_c` — calibration offset.
 - `fallback_altitude_m` / `fallback_lat` / `fallback_lon` — used when GPS has no fix.
+
+**Separate wind station (topology 3).** Add a second `[[sensors]]` entry with `role = "wind_station"`
+and `has_wind = true` (no GPS), set the outdoor unit's `has_wind = false` (its anemometer has moved),
+and point `[wind] source` at the station's id. It is **logged** to its own table (`wind_readings`) like
+the outdoor unit, and feeds the wind derivations via the resolver — but it is a data source, not a
+display sensor (it has no `/current/<id>` view).
+
+```toml
+[wind]
+source = "wind"
+
+[[sensors]]
+id = "wind"
+role = "wind_station"
+ip = "192.168.1.61"
+has_wind = true
+wind_vane_offset_deg = 0.0   # the wind station's vane alignment
+online_threshold_seconds = 120
+```
 
 ## Branding
 

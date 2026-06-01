@@ -69,19 +69,65 @@ firmware debounces (`WIND_DEBOUNCE_US = 1000`, ~1 ms) and converts pulse frequen
 The firmware converts to **m/s** on the wire; the server converts to knots for display (knots are
 fixed, aviation-universal).
 
+## Mounting topologies (ADR-0006)
+
+Good wind data wants the vane/cups **high on a clear mast**, away from building eddies. The BME280 wants
+**shaded, ventilated** air near the area of interest, and the GPS wants sky view. At many fields these
+can't all live in one spot — so airfield-wx supports three arrangements. The first two are the default
+(one device); the third is an opt-in for sites where wind and thermo can't co-locate.
+
+| # | Topology | Devices | Wind source |
+|---|----------|---------|-------------|
+| 1 | **All-in-one** *(default)* | one ESP32: BME280 + GPS + anemometer | outdoor payload |
+| 2 | **Remote anemometer on a cable** *(default-equivalent)* | one ESP32; anemometer high on a mast, wires run down to it | outdoor payload |
+| 3 | **Separate wind station** *(opt-in)* | a **second** ESP32 + anemometer (no BME280, no GPS) at the good wind spot | the wind station |
+
+- **Topologies 1 & 2 are firmware-identical** — flash `outdoor.ino`; topology 2 is just a longer sensor
+  lead. `[wind] source = "outdoor"` (the default).
+- **Topology 3** adds a dedicated wind station running `wind_station.ino`. Location intelligence stays
+  anchored to the **outdoor** unit's GPS (one field, one position); the wind station reports anemometer
+  data only. Select it with `[wind] source = "<wind-station-id>"` (see the
+  [install guide](install.md#wind-flexible-anemometer-topology)).
+
+**Which vane offset applies where.** The `wind_vane_offset_deg` calibration (below) travels with the
+device that **physically holds the anemometer** — the outdoor unit in topologies 1/2, the wind station
+in topology 3. The server applies it to whichever device `[wind] source` names.
+
+### Separate wind station pinout (`sketches/wind_station.ino`)
+
+Anemometer-only — the same wind pins as the outdoor unit, nothing else:
+
+| Function | ESP32 pin | Notes |
+|---|---|---|
+| Anemometer **speed** pulse | **GPIO 25** | `INPUT_PULLUP`, FALLING-edge interrupt (`WIND_SPEED_PIN`) |
+| Anemometer **direction** wiper | **GPIO 34** | ADC1, 12-bit (`WIND_DIR_PIN`) |
+
+Wiring, the speed constant (`WIND_MPH_PER_HZ`), and the Davis 6410 / SparkFun vane handling are
+**identical to the outdoor unit** (above) — `wind_station.ino` reuses that anemometer code verbatim. It
+has no BME280, GPS, or OLED.
+
 ## Flashing
 
-The sketch is in `sketches/` (`outdoor.ino` — the single field unit). Flash with the Arduino IDE or
-`arduino-cli` (ESP32 board support + the BME280, TinyGPS, Adafruit SSD1306 libraries).
+The sketches are in `sketches/`:
 
-Before flashing `outdoor.ino`, edit the top of the file:
+- **`outdoor.ino`** — the field unit (BME280 + GPS + anemometer). Flash with the Arduino IDE or
+  `arduino-cli` (ESP32 board support + the BME280, TinyGPS, Adafruit SSD1306 libraries).
+- **`wind_station.ino`** *(topology 3 only)* — the separate wind station (anemometer only). Needs only
+  the ESP32 core libraries (no BME280/TinyGPS/SSD1306).
+
+Before flashing either, edit the top of the file:
 
 - `ssid` / `password` — your Wi-Fi credentials.
-- The static IP block (`ip`, `gateway`, `subnet`, `dns`) — pick a LAN address for the unit and record
-  it; you'll put it in `server/weather.toml` as the outdoor sensor's `ip`.
+- The static IP block (`ip`, `gateway`, `subnet`, `dns`) — pick a LAN address and record it; you'll put
+  it in `server/weather.toml` as that sensor's `ip`. `wind_station.ino` defaults to `192.168.1.61` so it
+  doesn't collide with the outdoor unit's `192.168.1.60` — change both to suit your LAN.
 
-After flashing, browse to `http://<sensor-ip>/data` — you should get a JSON object with
-`temperatureC`, `pressure`, `windSpeed`, `windDirection`, `latitude`, etc.
+After flashing, browse to `http://<sensor-ip>/data`:
+
+- **outdoor** → a JSON object with `temperatureC`, `pressure`, `windSpeed`, `windDirection`,
+  `latitude`, etc.
+- **wind station** → an anemometer-only object: `windSpeed`, `windGust`, `windDirection`, plus `rssi`,
+  `uptime`, `freeHeap` (no temperature/pressure/GPS keys).
 
 ## Siting
 
