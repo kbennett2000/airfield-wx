@@ -30,6 +30,9 @@ server/weather.toml
 branding.toml
 widget/config.toml
 
+# Local Claude Code settings (personal; committed settings.json stays tracked)
+.claude/settings.local.json
+
 # Editor / OS cruft
 .DS_Store
 .idea/
