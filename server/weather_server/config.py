@@ -92,8 +92,10 @@ class SensorConfig:
     ip: str
     has_gps: bool = False
     has_light: bool = False
+    has_wind: bool = False
     online_threshold_seconds: int = 120
     temp_offset_c: float = 0.0
+    wind_vane_offset_deg: float = 0.0
     fallback_altitude_m: float | None = None
     fallback_lat: float | None = None
     fallback_lon: float | None = None

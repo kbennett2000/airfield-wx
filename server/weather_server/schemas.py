@@ -41,10 +41,16 @@ class RawReading(_StrictModel):
     ir: int | None = None
     visible: int | None = None
     full: int | None = None
+    # Local anemometer (RAW). Direction is the uncorrected vane frame; the
+    # north-alignment offset is applied to derived.wind_direction_true_deg.
+    wind_speed_ms: float | None = None
+    wind_gust_ms: float | None = None
+    wind_direction_deg: float | None = None
 
 
 class CalibrationBlock(_StrictModel):
     temp_offset_c: float | None = None
+    wind_vane_offset_deg: float | None = None
 
 
 class SkyBlock(_StrictModel):
@@ -75,6 +81,9 @@ class DerivedReading(_StrictModel):
     # temperature-INDEPENDENT — distinct from pressure_sealevel_* above.
     altimeter_setting_hpa: float | None = None
     altimeter_setting_inhg: float | None = None
+    # Vane-corrected wind direction (D-READING): raw vane + wind_vane_offset_deg,
+    # normalized to [0,360). Null when there's no local wind / has_wind is false.
+    wind_direction_true_deg: float | None = None
 
     # Extended thermodynamics (D-READING) — local, always available.
     wet_bulb_c: float | None = None

@@ -21,7 +21,7 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS outdoor_readings (
@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS outdoor_readings (
     speed_kmh           REAL,
     course_deg          REAL,
 
+    wind_speed_ms       REAL,
+    wind_gust_ms        REAL,
+    wind_direction_deg  REAL,
+
     rssi_dbm            INTEGER,
     uptime_s            INTEGER,
     free_heap_bytes     INTEGER
@@ -52,6 +56,32 @@ CREATE TABLE IF NOT EXISTS outdoor_readings (
 CREATE INDEX IF NOT EXISTS idx_outdoor_readings_timestamp
     ON outdoor_readings (timestamp);
 """
+
+# Forward-only schema migrations, keyed by the from-version. Each opens the
+# door to the next: applying _MIGRATIONS[1] takes a v1 DB to v2. ALTER TABLE
+# ADD COLUMN leaves existing rows with NULL — no data rewrite, no loss.
+_MIGRATIONS: dict[int, tuple[str, ...]] = {
+    1: (  # v1 -> v2: local anemometer (decision 4 / ADR-0003)
+        "ALTER TABLE outdoor_readings ADD COLUMN wind_speed_ms REAL",
+        "ALTER TABLE outdoor_readings ADD COLUMN wind_gust_ms REAL",
+        "ALTER TABLE outdoor_readings ADD COLUMN wind_direction_deg REAL",
+    ),
+}
+
+
+def _migrate(conn: sqlite3.Connection, from_version: int, to_version: int) -> None:
+    """Apply forward migrations from `from_version` to `to_version`, bumping the
+    stored version after each step so a partial run can resume."""
+    version = from_version
+    while version < to_version:
+        steps = _MIGRATIONS.get(version)
+        if steps is None:
+            raise RuntimeError(f"no migration path from schema v{version}")
+        for stmt in steps:
+            conn.execute(stmt)
+        version += 1
+        conn.execute(f"PRAGMA user_version = {version}")
+    log.info("migrated db schema v%s → v%s", from_version, to_version)
 
 PRAGMAS = (
     "PRAGMA journal_mode = WAL",
@@ -72,13 +102,17 @@ def init_db(db_path: str | Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     for pragma in PRAGMAS:
         conn.execute(pragma)
-    conn.executescript(SCHEMA_SQL)
+    conn.executescript(SCHEMA_SQL)  # no-op for an existing table; full schema for a fresh file
     current_version = conn.execute("PRAGMA user_version").fetchone()[0]
     if current_version == 0:
+        # Brand-new file, just created at the latest schema.
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-    elif current_version != SCHEMA_VERSION:
+    elif current_version < SCHEMA_VERSION:
+        _migrate(conn, current_version, SCHEMA_VERSION)
+    elif current_version > SCHEMA_VERSION:
+        # Migrate forward only; never silently downgrade a newer DB.
         raise RuntimeError(
-            f"DB schema version mismatch: file has {current_version}, "
+            f"DB schema version too new: file has {current_version}, "
             f"code expects {SCHEMA_VERSION}"
         )
     log.info("db opened at %s (schema v%s)", db_path, SCHEMA_VERSION)
@@ -100,6 +134,9 @@ OUTDOOR_COLUMNS = (
     "satellites",
     "speed_kmh",
     "course_deg",
+    "wind_speed_ms",
+    "wind_gust_ms",
+    "wind_direction_deg",
     "rssi_dbm",
     "uptime_s",
     "free_heap_bytes",

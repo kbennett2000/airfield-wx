@@ -371,6 +371,64 @@ def test_extended_thermo_absent_without_humidity() -> None:
     assert "vapor_pressure_hpa" not in derived
 
 
+def test_wind_direction_true_applies_offset() -> None:
+    assert readings.wind_direction_true_deg(10.0, 5.0) == pytest.approx(15.0)
+
+
+def test_wind_direction_true_wraps_past_360() -> None:
+    assert readings.wind_direction_true_deg(358.0, 5.0) == pytest.approx(3.0)
+
+
+def test_wind_direction_true_negative_offset_wraps() -> None:
+    assert readings.wind_direction_true_deg(10.0, -15.0) == pytest.approx(355.0)
+
+
+def test_derive_reading_wind_true_with_offset() -> None:
+    derived = readings.derive_reading(
+        {"wind_direction_deg": 10.0},
+        has_wind=True,
+        wind_vane_offset_deg=5.0,
+    )
+    assert derived["wind_direction_true_deg"] == pytest.approx(15.0)
+
+
+def test_derive_reading_wind_true_absent_without_raw_direction() -> None:
+    derived = readings.derive_reading(
+        {"wind_speed_ms": 5.0},  # speed but no direction
+        has_wind=True,
+    )
+    assert "wind_direction_true_deg" not in derived
+
+
+def test_derive_reading_wind_true_absent_when_has_wind_false() -> None:
+    derived = readings.derive_reading(
+        {"wind_direction_deg": 10.0},
+        has_wind=False,
+        wind_vane_offset_deg=5.0,
+    )
+    assert "wind_direction_true_deg" not in derived
+
+
+def test_map_raw_includes_wind_when_has_wind() -> None:
+    raw = readings.map_raw(
+        {"wind_speed_ms": 5.2, "wind_gust_ms": 8.1, "wind_direction_deg": 270.0},
+        has_wind=True,
+    )
+    assert raw["wind_speed_ms"] == pytest.approx(5.2)
+    assert raw["wind_gust_ms"] == pytest.approx(8.1)
+    assert raw["wind_direction_deg"] == pytest.approx(270.0)
+
+
+def test_map_raw_drops_wind_when_no_anemometer() -> None:
+    raw = readings.map_raw(
+        {"temperature_c": 18.0, "wind_speed_ms": 5.2, "wind_direction_deg": 270.0},
+        has_wind=False,
+    )
+    assert "wind_speed_ms" not in raw
+    assert "wind_direction_deg" not in raw
+    assert raw["temperature_c"] == pytest.approx(18.0)
+
+
 def test_map_raw_maps_full_spectrum_to_full() -> None:
     raw = readings.map_raw(
         {

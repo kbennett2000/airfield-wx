@@ -88,8 +88,10 @@ def _build_reading(
         payload,
         temp_offset_c=sensor.temp_offset_c,
         fallback_altitude_m=sensor.fallback_altitude_m,
+        has_wind=sensor.has_wind,
+        wind_vane_offset_deg=sensor.wind_vane_offset_deg,
     )
-    raw_block = rd.map_raw(payload)
+    raw_block = rd.map_raw(payload, has_wind=sensor.has_wind)
     location_block = _build_location_block(payload) if sensor.has_gps else None
     device_block = _build_device_block(payload)
     sky_block = _build_sky_block(sensor, payload, reading_ts)
@@ -101,7 +103,10 @@ def _build_reading(
         reading_timestamp=reading_ts,
         age_seconds=round(age, 1),
         raw=RawReading(**raw_block),
-        calibration=CalibrationBlock(temp_offset_c=sensor.temp_offset_c),
+        calibration=CalibrationBlock(
+            temp_offset_c=sensor.temp_offset_c,
+            wind_vane_offset_deg=sensor.wind_vane_offset_deg if sensor.has_wind else None,
+        ),
         derived=DerivedReading(**derived, sky=sky_block),
         location=location_block,
         device=device_block,
