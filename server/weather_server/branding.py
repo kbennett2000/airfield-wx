@@ -25,9 +25,9 @@ def _empty_branding() -> dict[str, Any]:
     Every key the dashboard might read is present so the JS can index
     without optional-chaining gymnastics."""
     return {
-        "header": {"tagline": ""},
-        "footer": {"text": ""},
-        "browser_title": {"text": "JBA-WX // Weather Station"},
+        "header": {"tagline": "", "title": "", "subtitle": "", "system_mark": ""},
+        "footer": {"text": "", "system_line": ""},
+        "browser_title": {"text": "Weather Station"},
         "states": {
             "basement_offline": "",
             "outdoor_offline": "",

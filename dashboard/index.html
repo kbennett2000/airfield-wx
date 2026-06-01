@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JBA-WX // Weather Station</title>
+<title>Weather Station</title>
 
 <!-- Fonts and Chart.js are vendored under dashboard/vendor/ so the
      dashboard works on a LAN with no internet access. The original CDN
@@ -20,14 +20,14 @@
   <!-- HEADER -->
   <header class="header">
     <div class="brand">
-      <div class="brand-mark">SYS // JBA-WX-001</div>
-      <div class="brand-title">JONES<br>BIG ASS<br>WEATHER<br>DASHBOARD</div>
-      <div class="brand-sub">Collectin' Some Good Ass Weather Data!</div>
+      <div class="brand-mark" id="branding-system-mark">[BRANDING — system mark]</div>
+      <div class="brand-title" id="branding-title">[BRANDING — station title]</div>
+      <div class="brand-sub" id="branding-subtitle">[BRANDING — station subtitle]</div>
     </div>
 
     <div class="header-meta">
       <div class="tagline">
-        // <span class="tagline-text" id="branding-tagline">[BRANDING — rotating Jones-ism slot]</span>
+        // <span class="tagline-text" id="branding-tagline">[BRANDING — rotating tagline slot]</span>
       </div>
       <div class="tagline" style="margin-top: 8px; color: var(--text-dim);">
         SERVER &nbsp;<span style="color: var(--cool)" id="server-addr">--</span>&nbsp;&nbsp; TZ &nbsp;<span style="color: var(--text)" id="server-tz">--</span>
@@ -647,7 +647,7 @@
 
   <!-- FOOTER -->
   <footer class="footer">
-    <div>JBA-WX · BUILT FROM PARTS · NO CLOUD · NO ADS · NO BS</div>
+    <div id="branding-system-line">[BRANDING — footer system line]</div>
     <div class="footer-branding">
       <!-- [BRANDING] footer slot -->
       <span id="branding-footer">[BRANDING — footer reference goes here]</span>

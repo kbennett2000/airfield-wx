@@ -119,10 +119,10 @@ _WU_SAMPLE: dict[str, Any] = {
 
 
 def test_normalize_wunderground() -> None:
-    obs = p.normalize_wunderground(_WU_SAMPLE, "KCOELIZA85")
+    obs = p.normalize_wunderground(_WU_SAMPLE, "KXX00001")
     assert obs is not None
     assert obs.provider == "wunderground"
-    assert obs.station_id == "KCOELIZA85"
+    assert obs.station_id == "KXX00001"
     assert obs.wind_speed_ms == pytest.approx(14.4 / 3.6)
     assert obs.wind_gust_ms == pytest.approx(25.2 / 3.6)
     assert obs.wind_direction_deg == pytest.approx(200)
@@ -165,10 +165,10 @@ def test_fetch_external_partial_null_payload_returns_none() -> None:
 
 def test_fetch_external_wunderground_uses_station_and_key() -> None:
     cfg = ExternalConfig(
-        enabled=True, provider="wunderground", station_id="KCOELIZA85", api_key="k"
+        enabled=True, provider="wunderground", station_id="KXX00001", api_key="k"
     )
     obs = p.fetch_external(cfg, 39.4, -104.5, http_get=_fake_http(_WU_SAMPLE))
-    assert obs is not None and obs.station_id == "KCOELIZA85"
+    assert obs is not None and obs.station_id == "KXX00001"
 
 
 def test_wunderground_api_key_not_logged_on_failure(caplog: pytest.LogCaptureFixture) -> None:

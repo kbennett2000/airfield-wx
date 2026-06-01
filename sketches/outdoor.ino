@@ -137,7 +137,7 @@ void handleRoot()
     // The inline HTML status page was removed during Phase 5 cleanup —
     // the new dashboard at the FastAPI server is the canonical UI. This
     // endpoint stays so curl / browser pokes get something readable.
-    server.send(200, "text/plain", "Jones Big Ass Outdoor Sensor — see /data for JSON\n");
+    server.send(200, "text/plain", "airfield-wx outdoor sensor — see /data for JSON\n");
 }
 
 

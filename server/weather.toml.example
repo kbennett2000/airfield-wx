@@ -1,4 +1,4 @@
-# Jones Big Ass Weather Dashboard — server config
+# airfield-wx — server config
 # Copy to weather.toml and edit for your deployment.
 
 [server]
@@ -45,7 +45,7 @@ refresh_interval_seconds = 300
 http_timeout_seconds = 8
 fetch = ["wind", "cloud", "uv", "precip", "visibility"]
 cross_check = false
-# station_id = "KCOELIZA85"   # nws (pin a station) or wunderground (required)
+# station_id = "KXX00001"     # nws (pin a station) or wunderground (required)
 # api_key = "..."             # wunderground only (free; never the website key)
 # lat_override = 0.0          # default: outdoor GPS, then its fallback_lat/lon
 # lon_override = 0.0

@@ -1,4 +1,4 @@
-# Jones Big Ass Weather Dashboard — branding / copy config
+# airfield-wx — branding / copy config
 #
 # Copy this file to branding.toml at the repo root and edit. The live
 # branding.toml is gitignored so your edits never get committed; this
@@ -9,18 +9,24 @@
 # every [BRANDING] slot in the UI. No hot-reload — restart the server
 # after editing.
 
-# ── Header (top of the page, below the title) ──────────────────────────
+# ── Header (top of the page) ───────────────────────────────────────────
 [header]
+# The big station title, its subtitle, and the small system mark above it.
+title = "[BRANDING — station title]"
+subtitle = "[BRANDING — station subtitle]"
+system_mark = "[BRANDING — system mark]"
 # Used only when [taglines.rotating] below is missing or empty.
 tagline = "[BRANDING — rotating tagline goes here]"
 
 # ── Footer (bottom of the page, between version markers) ───────────────
 [footer]
+# A free-text reference line plus the system byline shown to its left.
 text = "[BRANDING — footer reference goes here]"
+system_line = "[BRANDING — footer system line]"
 
 # ── Browser tab title ──────────────────────────────────────────────────
 [browser_title]
-text = "JBA-WX // Weather Station"
+text = "[BRANDING — browser tab title]"
 
 # ── Sensor offline-state copy ──────────────────────────────────────────
 # Shown inside each sensor panel when that sensor is offline. Pick

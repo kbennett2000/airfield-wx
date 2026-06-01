@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Jones Big Ass Weather Tray
-==========================
+airfield-wx Weather Tray
+========================
 
 Linux system-tray widget that displays current outdoor weather. All data
 comes from the weather server's HTTP API; no sensor polling, no astronomy
@@ -135,7 +135,7 @@ def parse_iso(iso_str: str | None) -> datetime | None:
 # ─────────────────────────────────────────────────────────────────
 
 HEADER_MARKUP = (
-    '<span size="large" weight="bold">👨🏾📢Jones Big Ass Weather Widget🌦️⛱️</span>'
+    '<span size="large" weight="bold">🌦️ Weather Station ⛱️</span>'
 )
 
 

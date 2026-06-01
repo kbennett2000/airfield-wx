@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Jones Big Ass Weather Dashboard — installer for Ubuntu Server / Debian.
+# airfield-wx — installer for Ubuntu Server / Debian.
 #
 # What this does:
 #   * Installs apt packages: python3, python3-venv, sqlite3, ufw, curl.
@@ -41,8 +41,8 @@
 #                      yet. Handy when you still need to edit weather.toml.
 #
 # Usage:
-#   git clone https://github.com/kbennett2000/weather-station-public.git
-#   cd weather-station-public
+#   git clone https://github.com/kbennett2000/airfield-wx.git
+#   cd airfield-wx
 #   sudo ./install.sh                       # server only, default port 8005
 #   sudo ./install.sh --port 9000           # bind to 9000 instead
 #   sudo ./install.sh --with-widget         # server + widget deps
@@ -243,8 +243,8 @@ if $DO_SYSTEMD; then
     echo "==> Writing $UNIT_PATH…"
     cat > "$UNIT_PATH" <<EOF
 [Unit]
-Description=Jones Big Ass Weather Dashboard (FastAPI)
-Documentation=https://github.com/kbennett2000/weather-station-public
+Description=airfield-wx Weather Server (FastAPI)
+Documentation=https://github.com/kbennett2000/airfield-wx
 After=network-online.target
 Wants=network-online.target
 

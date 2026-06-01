@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Jones Big Ass Weather API",
+        title="airfield-wx API",
         version=__version__,
         description=(
             "Read-only HTTP API for weather sensor data. "

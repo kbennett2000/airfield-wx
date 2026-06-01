@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 # url, headers, timeout_seconds -> parsed JSON
 HttpGetJson = Callable[[str, dict[str, str] | None, float], Any]
 
-_NWS_USER_AGENT = "(jones-weather-station, weather-server)"
+_NWS_USER_AGENT = "(airfield-wx, weather-server)"
 _KMH_TO_MS = 1.0 / 3.6
 
 

@@ -1,4 +1,4 @@
-// Jones Big Ass Weather Dashboard — live data
+// airfield-wx — live data
 //
 // All numbers come from /api/v1/current (every CURRENT_REFRESH_MS) and
 // /api/v1/history/outdoor?hours=<window> (on window change + every
@@ -344,7 +344,11 @@ async function loadBranding() {
     : (data?.header?.tagline || '');
   if (pick) setText('branding-tagline', pick);
 
+  if (data?.header?.title)             setText('branding-title', data.header.title);
+  if (data?.header?.subtitle)          setText('branding-subtitle', data.header.subtitle);
+  if (data?.header?.system_mark)       setText('branding-system-mark', data.header.system_mark);
   if (data?.footer?.text)              setText('branding-footer', data.footer.text);
+  if (data?.footer?.system_line)       setText('branding-system-line', data.footer.system_line);
   if (data?.states?.outdoor_offline)   setText('outdoor-branding', data.states.outdoor_offline);
   if (data?.states?.indoor_offline)    setText('indoor-branding',  data.states.indoor_offline);
   if (data?.states?.basement_offline)  setText('basement-branding', data.states.basement_offline);

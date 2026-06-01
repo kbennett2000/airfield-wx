@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "weather-server"
 version = "0.1.0"
-description = "Jones Big Ass Weather Dashboard — FastAPI server"
+description = "airfield-wx — FastAPI weather server"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110",

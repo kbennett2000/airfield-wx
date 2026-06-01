@@ -1,4 +1,4 @@
-# Jones Big Ass Weather Dashboard — common developer commands.
+# airfield-wx — common developer commands.
 #
 # Usage:
 #   make install     first-time setup: create venv, install server in editable mode

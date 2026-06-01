@@ -1,4 +1,4 @@
-# Jones Big Ass Weather Tray — example config
+# airfield-wx — tray widget example config
 #
 # Copy this file to one of:
 #   $WEATHER_TRAY_CONFIG                         (env var, highest priority)
