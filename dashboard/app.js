@@ -58,6 +58,29 @@ async function fetchJson(path) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Session state (no browser storage — held in JS for the session).
+//   units        : 'imperial' | 'metric'  (display-only; default imperial,
+//                  since [units].system isn't surfaced by the API)
+//   feedOverride : when true, treat external as offline (manual FEED toggle)
+//   themeOverride: 'auto' | 'day' | 'night'  (manual SKY toggle)
+// lastCurrent / lastHistory cache the last responses so the unit toggle can
+// re-render with no re-fetch.
+// ─────────────────────────────────────────────────────────────────
+
+const HISTORY_REFRESH_MS = 60_000;
+const SM_TO_KM = 1.60934;
+const KM_TO_NM = 0.539957;
+
+let units = 'imperial';
+let feedOverride = false;
+let themeOverride = 'auto';
+let lastCurrent = null;
+let lastHistory = null;
+let trendChart = null;
+
+const isMetric = () => units === 'metric';
+
+// ─────────────────────────────────────────────────────────────────
 // Clock — live Zulu (real UTC) + station-local, ticking every second.
 // The station zone comes from the /current astronomy block.
 // ─────────────────────────────────────────────────────────────────
@@ -142,15 +165,27 @@ async function refreshCurrent() {
     return;
   }
   hideDataStatus();
+  lastCurrent = data;
+  renderAll(data);
+}
 
+// Render everything from a /current payload. Split out from the fetch so the
+// units / feed / theme toggles can re-render the cached payload with no
+// re-fetch. LOCAL panels render unconditionally; only the external path is
+// gated by feed state — that asymmetry is the offline-first UX.
+function renderAll(data) {
+  if (!data) return;
   timezone = data.astronomy?.timezone || 'UTC';
   const outdoor = data.sensors?.outdoor;
+  const effExternal = feedOverride ? null : data.external;
 
   renderHeader(data);
   renderDensityAltitude(outdoor?.derived, data.airport);
   renderAltimeter(outdoor?.derived);
   renderTemp(outdoor);
   renderWindRunway(data);
+  renderExternal(effExternal, outdoor);
+  renderDayNight(data.astronomy);
   renderClock();
 }
 
@@ -222,18 +257,29 @@ function renderDensityAltitude(d, airport) {
 
 function renderAltimeter(d) {
   d = d || {};
-  setText('qnh', fmt(d.altimeter_setting_inhg, 2));
-  setText('stp', fmt(d.pressure_station_inhg, 2));
-  setText('tendency', EM);  // pressure tendency is history-derived — 7b/later
+  if (isMetric()) {
+    setText('qnh', fmt(d.altimeter_setting_hpa, 0)); setText('u-qnh', 'hPa');
+    setText('stp', fmt(d.pressure_station_hpa, 0)); setText('u-stp', 'hPa');
+  } else {
+    setText('qnh', fmt(d.altimeter_setting_inhg, 2)); setText('u-qnh', 'inHg');
+    setText('stp', fmt(d.pressure_station_inhg, 2)); setText('u-stp', 'inHg');
+  }
+  setText('tendency', EM);  // pressure tendency is history-derived — later
 }
 
 function renderTemp(sr) {
   const d = sr?.derived || {};
   const raw = sr?.raw || {};
-  setText('oat', fmt(d.temperature_f, 1));
-  setText('dew', fmt(d.dewpoint_f, 1));
-  const spread = (present(d.temperature_f) && present(d.dewpoint_f)) ? d.temperature_f - d.dewpoint_f : null;
-  setText('spread', fmt(spread, 1));
+  const tF = d.temperature_f, tC = d.temperature_c, dF = d.dewpoint_f, dC = d.dewpoint_c;
+  if (isMetric()) {
+    setText('oat', fmt(tC, 1)); setText('u-oat', '°C');
+    setText('dew', fmt(dC, 1)); setText('u-dew', '°C');
+    setText('spread', (present(tC) && present(dC)) ? fmt(tC - dC, 1) : EM); setText('u-spread', '°C');
+  } else {
+    setText('oat', fmt(tF, 1)); setText('u-oat', '°F');
+    setText('dew', fmt(dF, 1)); setText('u-dew', '°F');
+    setText('spread', (present(tF) && present(dF)) ? fmt(tF - dF, 1) : EM); setText('u-spread', '°F');
+  }
   setText('rh', fmt(raw.humidity_pct, 0));
 }
 
@@ -347,15 +393,250 @@ function compassSvg(airport, windTrue, variation) {
   return s;
 }
 
+function ageLabel(s) {
+  if (!present(s)) return '— ago';
+  const x = Math.round(s);
+  if (x < 90) return `${x}s ago`;
+  if (x < 3600) return `${Math.round(x / 60)}m ago`;
+  if (x < 86400) return `${Math.round(x / 3600)}h ago`;
+  return `${Math.round(x / 86400)}d ago`;
+}
+
+function hhmm(iso) {
+  if (!iso) return '--:--';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour12: false, hour: '2-digit', minute: '2-digit', timeZone: timezone,
+    }).format(new Date(iso));
+  } catch { return '--:--'; }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// External / METAR (INTERNET-sourced, violet). The ONLY panel that dims /
+// shows "no feed"/stale when the feed is null or stale. Local panels are on
+// a separate render path and are never touched here.
+// ─────────────────────────────────────────────────────────────────
+
+function renderExternal(ext, _outdoor) {
+  const panel = $('metar-panel');
+  const xchk = $('altim-xcheck');
+  const ledFeed = $('led-feed');
+
+  // Top-level feed indicator.
+  let label, ledClass;
+  if (!ext) { label = 'OFFLINE'; ledClass = 'off'; }
+  else if (ext.stale) { label = 'STALE'; ledClass = 'warn'; }
+  else { label = 'ONLINE'; ledClass = 'ext'; }
+  if (ledFeed) ledFeed.className = 'dot ' + ledClass;
+  setText('sw-feed', label);
+
+  if (!ext) {
+    if (panel) { panel.classList.add('offline'); panel.classList.remove('stale'); }
+    setText('flight-cat', EM); if ($('flight-cat')) $('flight-cat').className = 'catbadge';
+    if ($('metar-layers')) $('metar-layers').innerHTML = '';
+    setText('metar-ceiling', EM);
+    setText('vis', EM); setText('metar-altim', EM);
+    setText('metar-src', '');
+    const off = $('metar-offcopy');
+    if (off) { off.hidden = false; off.textContent = brandingCopy.states?.outdoor_offline || 'No feed — internet-sourced data unavailable.'; }
+    if (xchk) { xchk.textContent = 'no feed'; xchk.className = 'chip muted offline'; }
+    return;
+  }
+
+  if (panel) { panel.classList.remove('offline'); panel.classList.toggle('stale', !!ext.stale); }
+  if ($('metar-offcopy')) $('metar-offcopy').hidden = true;
+
+  const cat = ext.flight_category;
+  const fc = $('flight-cat');
+  if (fc) { fc.textContent = cat || EM; fc.className = 'catbadge' + (cat ? ' cat-' + cat.toLowerCase() : ''); }
+
+  const layers = Array.isArray(ext.sky_layers) ? ext.sky_layers : [];
+  if ($('metar-layers')) {
+    $('metar-layers').innerHTML = layers.map(l => {
+      const base = present(l.base_ft_agl) ? `${Math.round(l.base_ft_agl).toLocaleString()} ft AGL` : EM;
+      const isCeil = present(ext.ceiling_ft_agl) && l.base_ft_agl === ext.ceiling_ft_agl
+        && ['BKN', 'OVC', 'OVX'].includes((l.cover || '').toUpperCase());
+      return `<div class="layer"><span>${escSvg(l.cover || EM)}</span>`
+        + `<span class="lc">${base}${isCeil ? ' ← ceiling' : ''}</span></div>`;
+    }).join('');
+  }
+  setText('metar-ceiling', present(ext.ceiling_ft_agl)
+    ? `Ceiling ${Math.round(ext.ceiling_ft_agl).toLocaleString()} ft AGL` : 'Ceiling unlimited');
+
+  if (isMetric() && present(ext.visibility_sm)) { setText('vis', fmt(ext.visibility_sm * SM_TO_KM, 0)); setText('u-vis', 'km'); }
+  else { setText('vis', fmt(ext.visibility_sm, 0)); setText('u-vis', 'SM'); }
+
+  if (isMetric()) { setText('metar-altim', fmt(ext.altimeter_hpa, 0)); setText('u-metar-altim', 'hPa'); }
+  else { setText('metar-altim', fmt(ext.altimeter_inhg, 2)); setText('u-metar-altim', 'inHg'); }
+
+  // Mandatory attribution (ADR-0005): station · distance · age + the warning.
+  const stn = ext.station_id || ext.source || 'feed';
+  const distNm = present(ext.distance_km) ? `${Math.round(ext.distance_km * KM_TO_NM)} NM` : '— NM';
+  if ($('metar-src')) {
+    $('metar-src').innerHTML = `via <span class="ext-tag">${escSvg(stn)} · ${distNm}</span> · obs ${ageLabel(ext.age_seconds)}<br>`
+      + `<span class="warn">⚠ conditions AT the reporting station — not necessarily over your field</span>`;
+  }
+
+  // Altimeter cross-check chip — internet-sourced; sits in the local Altimeter
+  // panel and dims with the feed, while QNH/station stay bright.
+  if (xchk) {
+    if (present(ext.altimeter_diff_inhg)) {
+      const diff = ext.altimeter_diff_inhg;
+      xchk.textContent = `Δ ${diff >= 0 ? '+' : ''}${diff.toFixed(2)} inHg`;
+      xchk.className = 'chip ' + (Math.abs(diff) <= 0.02 ? 'ok' : 'cau');
+    } else { xchk.textContent = EM; xchk.className = 'chip muted'; }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Day / night + twilight arc — driven by live astronomy (is_daytime),
+// not the clock. SKY toggle overrides the theme.
+// ─────────────────────────────────────────────────────────────────
+
+function progress(aIso, bIso) {
+  const t = Date.now(), ta = new Date(aIso).getTime(), tb = new Date(bIso).getTime();
+  return tb > ta ? (t - ta) / (tb - ta) : 0;
+}
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+function renderDayNight(astro) {
+  const sun = astro?.sun || null;
+  const moon = astro?.moon || null;
+  const isDay = themeOverride === 'auto' ? (sun?.is_daytime ?? true) : (themeOverride === 'day');
+
+  document.body.classList.toggle('night', !isDay);
+  setText('sky-title', isDay ? 'Day · Sun' : 'Night · Moon');
+
+  const body = $('arc-body'), glow = $('arc-bodyglow'), stars = $('arc-stars');
+  let bx = 160, by = 40;
+  if (sun && sun.sunrise && sun.sunset) {
+    const fr = clamp01(progress(sun.sunrise, sun.sunset));
+    bx = 20 + fr * 280;
+    by = 108 - 4 * 68 * fr * (1 - fr);  // quadratic arc matching the dashed path
+  }
+  if (body) {
+    if (isDay) { body.setAttribute('fill', '#ffd27a'); body.setAttribute('r', '8'); body.setAttribute('cx', bx.toFixed(0)); body.setAttribute('cy', by.toFixed(0)); }
+    else { body.setAttribute('fill', '#cfd9e2'); body.setAttribute('r', '6'); body.setAttribute('cx', '252'); body.setAttribute('cy', '120'); }
+  }
+  if (glow) { glow.setAttribute('opacity', isDay ? '0.18' : '0'); glow.setAttribute('cx', bx.toFixed(0)); glow.setAttribute('cy', by.toFixed(0)); }
+  if (stars) {
+    if (!isDay) {
+      stars.innerHTML = [[60, 40], [120, 28], [180, 48], [240, 34], [280, 60], [150, 64], [95, 55]]
+        .map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="1.1" fill="#9fb3c4"/>`).join('');
+      stars.setAttribute('opacity', '.8');
+    } else { stars.innerHTML = ''; stars.setAttribute('opacity', '0'); }
+  }
+
+  setText('arc-rise', sun?.sunrise ? hhmm(sun.sunrise) : '--:--');
+  setText('arc-set', sun?.sunset ? hhmm(sun.sunset) : '--:--');
+  setText('sun-pos', sun && present(sun.azimuth_deg)
+    ? `AZ ${Math.round(sun.azimuth_deg)}° · ALT ${fmt(sun.altitude_deg, 0)}°` : EM);
+  setText('day-length', present(sun?.day_length_seconds) ? `${(sun.day_length_seconds / 3600).toFixed(1)}h` : EM);
+  setText('twi-civil', sun?.dusk ? hhmm(sun.dusk) : (sun?.dawn ? hhmm(sun.dawn) : '—'));
+  setText('twi-nautical', sun?.nautical_dusk ? hhmm(sun.nautical_dusk) : '—');
+  setText('twi-astro', sun?.astronomical_dusk ? hhmm(sun.astronomical_dusk) : '—');
+  setText('moon-twi', moon ? `${moon.phase_icon || '🌑'} ${fmt(moon.illumination_pct, 0)}%` : EM);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Trend chart (Chart.js, vendored). Plots the LOGGED series only — OAT and
+// station pressure — never a client-side derivation. Empty history → empty
+// chart, no crash.
+// ─────────────────────────────────────────────────────────────────
+
+function initTrend() {
+  const el = $('trend-chart');
+  if (!el || typeof Chart === 'undefined') return;
+  Chart.defaults.color = '#6f8294';
+  Chart.defaults.font.family = "'JetBrains Mono', monospace";
+  Chart.defaults.font.size = 9;
+  trendChart = new Chart(el, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'OAT', data: [], borderColor: '#ffb24a', borderWidth: 2, pointRadius: 0, tension: 0.35, yAxisID: 'yT' },
+        { label: 'Pressure', data: [], borderColor: '#2fd4cf', borderWidth: 2, pointRadius: 0, tension: 0.35, yAxisID: 'yP' },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false, grid: { display: false } },
+        yT: { position: 'left', grid: { color: '#16222e' }, ticks: { maxTicksLimit: 4 } },
+        yP: { position: 'right', grid: { display: false }, ticks: { maxTicksLimit: 4 } },
+      },
+    },
+  });
+}
+
+async function refreshHistory() {
+  let data;
+  try {
+    data = await fetchJson('/api/v1/history/outdoor?hours=24&include=weather');
+  } catch (e) {
+    console.warn('history fetch failed:', e);
+    return;
+  }
+  lastHistory = data.rows || [];
+  plotTrend();
+}
+
+function plotTrend() {
+  if (!trendChart) return;
+  const rows = lastHistory || [];
+  const empty = $('trend-empty');
+  if (empty) empty.hidden = rows.length > 0;
+  trendChart.data.labels = rows.map(r => r.timestamp);
+  trendChart.data.datasets[0].data = rows.map(r => (isMetric() ? r.temperature_c : r.temperature_f) ?? null);
+  trendChart.data.datasets[1].data = rows.map(r =>
+    present(r.pressure_station_hpa) ? (isMetric() ? r.pressure_station_hpa : r.pressure_station_hpa * 0.02953) : null);
+  trendChart.update('none');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Toggles (session-only; no storage). Re-render the cached payload.
+// ─────────────────────────────────────────────────────────────────
+
+function toggleFeed() {
+  feedOverride = !feedOverride;
+  setText('sw-feed', feedOverride ? 'OFFLINE' : 'ONLINE');
+  renderAll(lastCurrent);
+}
+
+function toggleDN() {
+  themeOverride = themeOverride === 'auto' ? 'night' : (themeOverride === 'night' ? 'day' : 'auto');
+  setText('sw-dn', themeOverride.toUpperCase());
+  renderAll(lastCurrent);
+}
+
+function toggleUnits() {
+  units = isMetric() ? 'imperial' : 'metric';
+  setText('sw-un', isMetric() ? 'MET' : 'IMP');
+  renderAll(lastCurrent);
+  plotTrend();
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Boot
 // ─────────────────────────────────────────────────────────────────
 
+function wireToggles() {
+  $('sw-feed-btn')?.addEventListener('click', toggleFeed);
+  $('sw-dn-btn')?.addEventListener('click', toggleDN);
+  $('sw-un-btn')?.addEventListener('click', toggleUnits);
+}
+
 function start() {
   loadBranding();      // fire-and-forget; slots fill when it resolves
   renderClock();
+  initTrend();
+  wireToggles();
   refreshCurrent();
+  refreshHistory();
   setInterval(refreshCurrent, CURRENT_REFRESH_MS);
+  setInterval(refreshHistory, HISTORY_REFRESH_MS);
   setInterval(renderClock, 1000);
 }
 

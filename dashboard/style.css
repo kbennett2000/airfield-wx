@@ -99,10 +99,11 @@ body::after{
 .dot.off,.dot.fault{background:var(--red);box-shadow:0 0 7px 1px rgba(255,93,93,.5)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 
-/* toggle switches (demo-only in 7a — inert, wired in 7b) */
+/* toggle switches (interactive — FEED / SKY / UNITS) */
 .switches{display:flex;gap:10px;border-left:1px solid var(--hair);padding-left:18px}
-.sw{user-select:none;border:1px solid var(--hair-bright);border-radius:8px;
-    padding:6px 9px;text-align:center;background:var(--panel);min-width:74px;opacity:.55}
+.sw{cursor:pointer;user-select:none;border:1px solid var(--hair-bright);border-radius:8px;
+    padding:6px 9px;text-align:center;background:var(--panel);min-width:74px;transition:.18s}
+.sw:hover{border-color:var(--accent);background:var(--accent-soft)}
 .sw .swl{font-family:var(--font-d);font-size:8px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
 .sw .swv{font-family:var(--font-d);font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--accent);margin-top:3px}
 
@@ -188,10 +189,25 @@ body::after{
 .layer{display:flex;justify-content:space-between;font-size:12px;color:var(--ink);
        border-left:2px solid var(--ext);padding-left:9px}
 .layer .lc{color:var(--dim)}
-.catbadge{font-family:var(--font-d);font-weight:700;font-size:15px;letter-spacing:.14em;padding:4px 12px;border-radius:6px}
+.catbadge{font-family:var(--font-d);font-weight:700;font-size:15px;letter-spacing:.14em;padding:4px 12px;border-radius:6px;
+          color:var(--dim);background:var(--hair)}
 .cat-vfr{color:var(--green);background:rgba(70,209,127,.14);border:1px solid rgba(70,209,127,.4)}
+.cat-mvfr{color:#5aa9ff;background:rgba(90,169,255,.14);border:1px solid rgba(90,169,255,.4)}
+.cat-ifr{color:var(--red);background:rgba(255,93,93,.14);border:1px solid rgba(255,93,93,.4)}
+.cat-lifr{color:#e36bff;background:rgba(227,107,255,.14);border:1px solid rgba(227,107,255,.4)}
 .src{font-size:8.5px;color:var(--ext);letter-spacing:.08em;margin-top:11px;line-height:1.5}
 .src .warn{color:var(--dim)}
+
+/* ─── offline-first dimming — INTERNET-sourced (violet) panels ONLY ─── */
+.nofeed{display:none;position:absolute;top:13px;right:14px;font-family:var(--font-d);
+        font-weight:700;font-size:9px;letter-spacing:.16em;color:var(--amber);
+        border:1px solid rgba(255,178,74,.5);border-radius:4px;padding:2px 7px}
+.panel.offline{opacity:.5;filter:saturate(.45)}
+.panel.offline .nofeed{display:block}
+.panel.stale{opacity:.85}
+.panel.stale .nofeed{display:block;color:var(--ext);border-color:rgba(181,139,255,.5)}
+/* the altimeter cross-check chip is internet-sourced; it dims, the local rows don't */
+.chip.offline{opacity:.5}
 
 /* 7b placeholder marking */
 .todo7b{opacity:.5}
@@ -220,6 +236,15 @@ footer{margin-top:14px;border-top:1px solid var(--hair);padding-top:13px;
         display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
 .ver{font-family:var(--font-m);font-size:9px;letter-spacing:.16em;color:var(--dimmer)}
 .ver b{color:var(--accent)}
+
+/* subtle night theme — driven by astronomy.is_daytime (or the SKY override) */
+body.night{
+  background:
+    radial-gradient(1200px 700px at 70% -10%, #0a1622 0%, transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, #0a131c 0%, transparent 55%),
+    #04070a;
+}
+body.night .sys{color:#9fb3c4}
 
 @media (max-width:980px){
   .grid{grid-template-columns:repeat(2,1fr)}

@@ -41,11 +41,12 @@
         <div class="led"><span class="dot ext" id="led-feed"></span> Net feed</div>
         <div class="led"><span class="dot" id="led-gps"></span> <span id="led-gps-label">GPS fix</span></div>
       </div>
-      <!-- demo-only switches: rendered in default state, wired in 7b -->
-      <div class="switches" aria-hidden="true">
-        <div class="sw"><div class="swl">Net Feed</div><div class="swv">ONLINE</div></div>
-        <div class="sw"><div class="swl">Sky</div><div class="swv">DAY</div></div>
-        <div class="sw"><div class="swl">Units</div><div class="swv">IMP</div></div>
+      <!-- FEED forces the offline state (manual override); SKY overrides the
+           day/night theme; UNITS flips imperial⇄metric. All session-only. -->
+      <div class="switches">
+        <div class="sw" id="sw-feed-btn" role="button" tabindex="0"><div class="swl">Net Feed</div><div class="swv" id="sw-feed">ONLINE</div></div>
+        <div class="sw" id="sw-dn-btn" role="button" tabindex="0"><div class="swl">Sky</div><div class="swv" id="sw-dn">AUTO</div></div>
+        <div class="sw" id="sw-un-btn" role="button" tabindex="0"><div class="swl">Units</div><div class="swv" id="sw-un">IMP</div></div>
       </div>
     </div>
   </header>
@@ -99,10 +100,10 @@
     <section class="panel span3" style="animation-delay:.16s">
       <div class="phead"><span class="lbl">Altimeter</span><span class="code">P-02 · DERIVED ◉</span></div>
       <div class="rows">
-        <div class="row"><span class="rl">Altimeter (QNH)</span><span class="rv"><span id="qnh">&mdash;</span><span class="u">inHg</span></span></div>
-        <div class="row"><span class="rl">Station press.</span><span class="rv"><span id="stp">&mdash;</span><span class="u">inHg</span></span></div>
+        <div class="row"><span class="rl">Altimeter (QNH)</span><span class="rv"><span id="qnh">&mdash;</span><span class="u" id="u-qnh">inHg</span></span></div>
+        <div class="row"><span class="rl">Station press.</span><span class="rv"><span id="stp">&mdash;</span><span class="u" id="u-stp">inHg</span></span></div>
         <div class="row"><span class="rl">Tendency 3h</span><span class="rv"><span id="tendency">&mdash;</span></span></div>
-        <div class="row"><span class="rl">vs nearest METAR</span><span class="chip muted">7b</span></div>
+        <div class="row"><span class="rl">vs nearest METAR</span><span class="chip muted" id="altim-xcheck">no feed</span></div>
       </div>
     </section>
 
@@ -110,34 +111,76 @@
     <section class="panel span3" style="animation-delay:.22s">
       <div class="phead"><span class="lbl">Temp / Moisture</span><span class="code">A-01 · LOCAL ◉</span></div>
       <div class="rows">
-        <div class="row"><span class="rl">OAT</span><span class="rv"><span id="oat">&mdash;</span><span class="u">°F</span></span></div>
-        <div class="row"><span class="rl">Dewpoint</span><span class="rv"><span id="dew">&mdash;</span><span class="u">°F</span></span></div>
-        <div class="row"><span class="rl">Spread</span><span class="rv"><span id="spread">&mdash;</span><span class="u">°F</span></span></div>
+        <div class="row"><span class="rl">OAT</span><span class="rv"><span id="oat">&mdash;</span><span class="u" id="u-oat">°F</span></span></div>
+        <div class="row"><span class="rl">Dewpoint</span><span class="rv"><span id="dew">&mdash;</span><span class="u" id="u-dew">°F</span></span></div>
+        <div class="row"><span class="rl">Spread</span><span class="rv"><span id="spread">&mdash;</span><span class="u" id="u-spread">°F</span></span></div>
         <div class="row"><span class="rl">Rel. humidity</span><span class="rv"><span id="rh">&mdash;</span><span class="u">%</span></span></div>
       </div>
     </section>
 
-    <!-- CEILING / VISIBILITY (METAR) — 7b -->
-    <section class="panel todo7b span5" style="animation-delay:.28s">
-      <span class="todo7b-tag">7b · METAR</span>
-      <div class="phead"><span class="lbl">Ceiling &amp; Visibility</span><span class="code">M-01 · METAR</span></div>
-      <div class="todo7b-copy">Ceiling, sky layers, visibility, flight category &amp; the altimeter cross-check
-        (internet-sourced, violet) arrive in Cycle 7b — with offline dimming.</div>
+    <!-- CEILING / VISIBILITY (METAR) — INTERNET-sourced (violet); dims offline -->
+    <section class="panel span5" id="metar-panel" style="animation-delay:.28s">
+      <span class="nofeed">⊘ NO FEED</span>
+      <div class="phead"><span class="lbl">Ceiling &amp; Visibility</span><span class="ext-tag">M-01 · METAR</span></div>
+      <div style="display:flex;gap:24px;align-items:flex-start">
+        <div style="flex:1">
+          <div class="layers" id="metar-layers"></div>
+          <div class="lbl" id="metar-ceiling" style="margin-top:8px">&mdash;</div>
+        </div>
+        <div style="text-align:right">
+          <div class="catbadge" id="flight-cat">&mdash;</div>
+          <div style="margin-top:12px"><div class="rv" style="font-size:20px"><span id="vis">&mdash;</span><span class="u" id="u-vis">SM</span></div><div class="lbl" style="margin-top:3px">visibility</div></div>
+          <div style="margin-top:10px"><div class="rv" style="font-size:15px"><span id="metar-altim">&mdash;</span><span class="u" id="u-metar-altim">inHg</span></div><div class="lbl" style="margin-top:3px">stn altimeter</div></div>
+        </div>
+      </div>
+      <div class="src" id="metar-src">&mdash;</div>
+      <div class="todo7b-copy" id="metar-offcopy" hidden></div>
     </section>
 
-    <!-- DAY / NIGHT — 7b -->
-    <section class="panel todo7b span4" style="animation-delay:.34s">
-      <span class="todo7b-tag" style="color:var(--accent);border-color:rgba(47,212,207,.5)">7b · ASTRO</span>
-      <div class="phead"><span class="lbl">Day · Sun</span><span class="code">D-00 · ASTRO</span></div>
-      <div class="todo7b-copy">The day/night theming, twilight arc, sun/moon position and the
-        regional-overlay note arrive in Cycle 7b.</div>
+    <!-- DAY / NIGHT — ASTRO (local) -->
+    <section class="panel span4" id="sky-panel" style="animation-delay:.34s">
+      <div class="phead"><span class="lbl" id="sky-title">Day · Sun</span><span class="code">D-00 · ASTRO ◉</span></div>
+      <svg id="dayarc" viewBox="0 0 320 132" aria-label="day arc">
+        <defs>
+          <linearGradient id="twi" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#1b2937" stop-opacity="0"/><stop offset="1" stop-color="#13202c"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="108" width="320" height="24" fill="url(#twi)"/>
+        <line x1="8" y1="108" x2="312" y2="108" stroke="#26394b" stroke-width="1"/>
+        <path d="M20,108 Q160,-14 300,108" fill="none" stroke="#2a3a49" stroke-width="1.4" stroke-dasharray="3 4"/>
+        <circle cx="20" cy="108" r="3" fill="#6f8294"/><circle cx="300" cy="108" r="3" fill="#6f8294"/>
+        <text id="arc-rise" x="20" y="124" font-family="'IBM Plex Sans Condensed'" font-size="8" fill="#6f8294" text-anchor="middle">--:--</text>
+        <text id="arc-set" x="300" y="124" font-family="'IBM Plex Sans Condensed'" font-size="8" fill="#6f8294" text-anchor="middle">--:--</text>
+        <circle id="arc-bodyglow" cx="160" cy="40" r="15" fill="#ffd27a" opacity="0.18"/>
+        <circle id="arc-body" cx="160" cy="40" r="8" fill="#ffd27a"/>
+        <g id="arc-stars" opacity="0"></g>
+      </svg>
+      <div class="arc-cap">
+        <div><div class="t" id="sun-pos">&mdash;</div><div class="l">sun position now</div></div>
+        <div style="text-align:right"><div class="t" id="day-length">&mdash;</div><div class="l">day length</div></div>
+      </div>
+      <div class="twi">
+        <div><div class="tv" id="twi-civil">&mdash;</div><div class="tl">Civil</div></div>
+        <div><div class="tv" id="twi-nautical">&mdash;</div><div class="tl">Nautical</div></div>
+        <div><div class="tv" id="twi-astro">&mdash;</div><div class="tl">Astro</div></div>
+        <div><div class="tv" id="moon-twi">&mdash;</div><div class="tl">Moon</div></div>
+      </div>
+      <div class="reg-note">Twilight times are universal · <b>position-light / night-currency rules are a regional overlay (off)</b></div>
     </section>
 
-    <!-- TREND — 7b -->
-    <section class="panel todo7b span12" style="animation-delay:.40s">
-      <span class="todo7b-tag">7b · D-HISTORY</span>
-      <div class="phead"><span class="lbl">Today &amp; Trend</span><span class="code">H-00 · D-HISTORY</span></div>
-      <div class="todo7b-copy">The density-altitude / OAT / altimeter trend chart arrives in Cycle 7b.</div>
+    <!-- TREND — D-HISTORY (local) -->
+    <section class="panel span12" style="animation-delay:.40s">
+      <div class="phead">
+        <span class="lbl">Today &amp; Trend</span>
+        <span class="legend">
+          <span><i style="background:#ffb24a"></i>OAT</span>
+          <span><i style="background:#2fd4cf"></i>Station pressure</span>
+          <span class="code" style="margin-left:8px">H-00 · D-HISTORY ◉</span>
+        </span>
+      </div>
+      <div style="height:170px"><canvas id="trend-chart"></canvas></div>
+      <div class="barscale" id="trend-empty" hidden style="margin-top:6px">no history yet — the trend fills in as the logger accumulates readings</div>
     </section>
 
   </div>
@@ -149,6 +192,7 @@
   </footer>
 </div>
 
+<script src="vendor/chart.umd.min.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>
