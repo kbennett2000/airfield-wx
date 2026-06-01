@@ -1,0 +1,71 @@
+<svg width="1280" height="320" viewBox="0 0 1280 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="airfield-wx — a self-hosted weather station for your own airstrip">
+  <title>airfield-wx</title>
+  <desc>Banner for airfield-wx, a self-hosted, GPS-aware weather station for your own airstrip. Unofficial — not for flight planning.</desc>
+
+  <rect width="1280" height="320" fill="#060a0e"/>
+
+  <rect x="0" y="0" width="1280" height="320" fill="none" stroke="#1b2937" stroke-width="2"/>
+
+  <g stroke="#101b26" stroke-width="1">
+    <line x1="0" y1="64" x2="1280" y2="64"/>
+    <line x1="0" y1="256" x2="1280" y2="256"/>
+  </g>
+
+  <g font-family="'Courier New', ui-monospace, monospace" font-size="13" letter-spacing="2" fill="#6f8294">
+    <text x="48" y="40">SELF-HOSTED · GPS-AWARE · OFFLINE-FIRST</text>
+    <text x="1232" y="40" text-anchor="end" fill="#2fd4cf">● LOCAL</text>
+    <text x="1232" y="40" text-anchor="end" dx="-92" fill="#b58bff">● METAR</text>
+  </g>
+
+  <text x="48" y="186" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="92" font-weight="700" letter-spacing="1" fill="#e9f1f6">airfield<tspan fill="#2fd4cf">-wx</tspan></text>
+
+  <text x="52" y="232" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="25" font-weight="400" letter-spacing="0.5" fill="#9fb3c4">A weather station for your own airstrip.</text>
+
+  <g transform="translate(880, 104)">
+    <circle cx="120" cy="80" r="78" fill="#0d151e" stroke="#26394b" stroke-width="1.5"/>
+    <circle cx="120" cy="80" r="78" fill="none" stroke="#2fd4cf" stroke-width="1" opacity="0.25"/>
+
+    <g font-family="'Courier New', monospace" font-size="11" fill="#6f8294" text-anchor="middle">
+      <text x="120" y="16">N</text>
+      <text x="120" y="152">S</text>
+      <text x="198" y="84">E</text>
+      <text x="42" y="84">W</text>
+    </g>
+
+    <g stroke="#3d4d5b" stroke-width="1">
+      <line x1="120" y1="8" x2="120" y2="18"/>
+      <line x1="120" y1="142" x2="120" y2="152"/>
+      <line x1="190" y1="80" x2="200" y2="80"/>
+      <line x1="40" y1="80" x2="50" y2="80"/>
+    </g>
+
+    <rect x="116" y="26" width="8" height="108" rx="3" fill="#101b26" stroke="#26394b" stroke-width="1" transform="rotate(40 120 80)"/>
+    <g font-family="'Courier New', monospace" font-size="12" font-weight="700" fill="#9fb3c4" transform="rotate(40 120 80)">
+      <text x="120" y="22" text-anchor="middle">08</text>
+      <text x="120" y="146" text-anchor="middle">26</text>
+    </g>
+
+    <g transform="rotate(295 120 80)">
+      <line x1="120" y1="80" x2="120" y2="24" stroke="#2fd4cf" stroke-width="2.5"/>
+      <path d="M120 20 L114 32 L126 32 Z" fill="#2fd4cf"/>
+    </g>
+    <circle cx="120" cy="80" r="4" fill="#2fd4cf"/>
+  </g>
+
+  <g transform="translate(632, 104)">
+    <rect x="0" y="0" width="150" height="152" rx="6" fill="#0d151e" stroke="#1b2937" stroke-width="1"/>
+    <text x="16" y="30" font-family="'Courier New', monospace" font-size="12" letter-spacing="1.5" fill="#6f8294">DENSITY ALT</text>
+    <text x="16" y="78" font-family="'Trebuchet MS', sans-serif" font-size="42" font-weight="700" fill="#2fd4cf">6,501<tspan font-size="18" font-weight="400" fill="#6f8294" dx="6">ft</tspan></text>
+    <line x1="16" y1="96" x2="134" y2="96" stroke="#1b2937" stroke-width="1"/>
+    <text x="16" y="120" font-family="'Courier New', monospace" font-size="12" fill="#6f8294">QNH <tspan fill="#9fb3c4" font-weight="700">29.92</tspan></text>
+    <text x="16" y="140" font-family="'Courier New', monospace" font-size="12" fill="#6f8294">WIND <tspan fill="#9fb3c4" font-weight="700">290°/8kt</tspan></text>
+  </g>
+
+  <g transform="translate(48, 272)">
+    <rect x="0" y="0" width="13" height="13" rx="2" fill="none" stroke="#ffb24a" stroke-width="1.5"/>
+    <text x="6.5" y="10.5" font-family="'Courier New', monospace" font-size="11" font-weight="700" fill="#ffb24a" text-anchor="middle">!</text>
+    <text x="24" y="11" font-family="'Courier New', monospace" font-size="13" letter-spacing="1.5" fill="#ffb24a">UNOFFICIAL — NOT FOR FLIGHT PLANNING</text>
+  </g>
+
+  <text x="1232" y="283" text-anchor="end" font-family="'Courier New', monospace" font-size="12" letter-spacing="1" fill="#4a637a">DENSITY ALTITUDE · ALTIMETER · WIND · RUNWAYS · METAR</text>
+</svg>

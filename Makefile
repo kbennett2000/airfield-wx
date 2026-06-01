@@ -32,7 +32,7 @@ PORT   ?= 8005
 # the server venv doesn't expose.
 SYSPY := /usr/bin/python3
 
-.PHONY: help install config dev serve test test-integration test-all lint typecheck check widget data-refresh clean distclean
+.PHONY: help install config dev serve test test-integration test-all lint typecheck check widget data-refresh screenshots clean distclean
 
 OURAIRPORTS_DIR := server/weather_server/data/ourairports
 OURAIRPORTS_URL := https://davidmegginson.github.io/ourairports-data
@@ -82,6 +82,13 @@ data-refresh: ## Re-download the bundled OurAirports CSVs (public domain)
 	curl -fsS $(OURAIRPORTS_URL)/airports.csv -o $(OURAIRPORTS_DIR)/airports.csv
 	curl -fsS $(OURAIRPORTS_URL)/runways.csv -o $(OURAIRPORTS_DIR)/runways.csv
 	@echo "refreshed OurAirports data in $(OURAIRPORTS_DIR)"
+
+screenshots: ## Regenerate the dashboard screenshots in docs/assets/screenshots/ (Playwright; tooling only, not part of `check`)
+	$(VPY) -m pip install -e "./server[tooling]"
+	# Install the bundled Chromium; if this OS has no bundled build, the script
+	# falls back to a system Chrome/Chromium, so don't fail the target here.
+	-$(VPY) -m playwright install chromium
+	$(VPY) scripts/screenshots/capture.py
 
 clean: ## Remove pycache + tool caches (preserves venv and db)
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +

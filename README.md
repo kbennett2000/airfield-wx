@@ -1,85 +1,108 @@
+![airfield-wx — a self-hosted weather station for your own airstrip](docs/assets/banner.png)
+
 # airfield-wx
 
-A self-hosted, GPS-aware weather station any pilot can build and run at their own airstrip. ESP32
-sensors feed a FastAPI server on your home LAN, which serves a cockpit-style (EFIS) dashboard and a
-read-only HTTP API.
+A self-hosted weather station for **your own airstrip**: build a small sensor, run a little server on
+your home network, and get a cockpit-style readout of the conditions at *your* field — density
+altitude, wind and the favored runway, altimeter setting, and (when you have internet) the nearest
+METAR.
 
 > ## ⚠ UNOFFICIAL — NOT FOR FLIGHT PLANNING
 > airfield-wx is backyard sensor data plus nearby public reports. It is **not** a substitute for an
-> official preflight briefing or current METAR/TAF, and it performs **no go/no-go automation**. You
-> are the pilot in command. Observations only — no forecasting.
+> official preflight briefing or current METAR/TAF, and it performs **no go/no-go automation**. You are
+> the pilot in command. Observations only — no forecasting.
 
-## What it is / who it's for
+## Is this for you?
 
-A general-purpose aviation variant of a DIY home weather station. Clone it, flash your own ESP32
-sensors, run the server on a Raspberry Pi (or any Ubuntu/Debian box) on your LAN, and get a
-cockpit-style readout for **your** field:
+If you fly out of — or just love — a strip that has no weather station of its own, this gives you a
+live picture of the air over your field:
 
-- **Density altitude** (the hero metric), pressure altitude, and **altimeter setting (QNH)**.
-- **Local wind** from your own anemometer → a **runway solution**: favored end, head/crosswind
-  components, magnetic runway headings.
-- **Temp / dewpoint / spread / humidity** from a local sensor.
-- The **nearest airport + runways + magnetic variation**, auto-resolved from GPS, fully offline.
-- Optional **METAR** panel (ceiling, visibility, flight category, station altimeter cross-check) when
-  the internet is available — always attributed with station, distance, and age.
+- **Density altitude**, the number that decides how your airplane will actually perform today.
+- **Your own wind**, turned into a **runway solution** — which end is favored, and the headwind and
+  crosswind on it.
+- **Altimeter setting (QNH)** and temperature/dewpoint, measured at your field.
+- The **nearest airport, its runways, and magnetic variation**, found automatically from GPS — no typing
+  in coordinates, and it works with no internet.
 
-**Nothing about any specific airfield is hardcoded.** Location, runways, magnetic variation, timezone,
-and the nearest reporting station are all resolved from the outdoor unit's GPS at runtime.
+You don't need to be a programmer. There's a **demo you can try in five minutes** (below) before you buy
+a single part. New to the terminal or to any of the aviation terms? The
+[install guide](docs/guide/install.md) walks you through it gently.
 
-## Hardware (overview)
+## What it looks like
 
-Outdoor suite = **BME280** (temp/humidity/pressure) + **GPS** + **anemometer**. No light sensor.
+![The airfield-wx dashboard, online — density altitude, wind and favored runway, altimeter, and a METAR panel](docs/assets/screenshots/dashboard-online.png)
 
-- **Anemometer — primary:** Davis 6410 (continuous-pot direction, rugged).
-- **Anemometer — budget:** SparkFun Weather Meter Kit (reed-switch + resistor-network, 8-point).
+*The dashboard reads like a panel instrument. Cyan numbers are measured at your field; violet is
+internet-sourced (the METAR). [Full dashboard tour →](docs/guide/dashboard.md)*
 
-The vane's north alignment is a one-time per-install **config calibration** (`wind_vane_offset_deg`),
-not a code constant. Full wiring, pinout, flashing, and the calibration procedure are in the
-**[hardware guide](docs/guide/hardware.md)**.
+## What you'll need
 
-**Anemometer can mount three ways** (ADR-0006): all-in-one (default), a remote anemometer cabled to the
-same ESP32, or — where wind and thermo can't co-locate — an opt-in **separate wind station** (a second
-ESP32 + anemometer running `wind_station.ino`, no GPS, logged). A `[wind] source` config knob selects
-it; a freshness guard nulls stale wind (and the runway solution) so a dead sensor never reads as current.
+| | |
+|---|---|
+| **A small sensor** | An **ESP32** board + a **BME280** (temp/humidity/pressure) + a **GPS** module + an **anemometer** (wind). Wires onto a perfboard; no soldering wizardry required. |
+| **A computer to run the server** | A **Raspberry Pi Zero 2 W** is plenty — or any Ubuntu/Debian box, or even your laptop to start. It lives on your home network; no cloud, no accounts. |
+| **Rough cost** | About **$100–250** of parts, mostly depending on the anemometer (a budget SparkFun kit vs. a rugged Davis 6410). |
+| **Rough effort** | An afternoon to wire and flash the sensor; the server is a handful of copy-paste commands. |
 
-## Quick start (demo data, no hardware)
+Full parts list, wiring, pinout, and the one calibration step are in the
+**[hardware & build guide](docs/guide/hardware.md)**.
+
+## Try it in 5 minutes (no hardware)
 
 ```bash
 git clone https://github.com/kbennett2000/airfield-wx.git
 cd airfield-wx
-make install        # creates server/.venv and installs the server
-make dev            # auto-seeds server/weather.toml (fixture/demo mode) and runs on :8005
+make install        # creates the server's environment and installs it
+make dev            # starts the server in demo mode on port 8005
 ```
 
-Open **http://localhost:8005/dashboard/**. The dashboard renders with sample data (outdoor ≈ 64.2°F)
-so you can explore it before any sensor exists. To go live, edit `server/weather.toml` — comment out
-the `[development]` block and set your sensor IPs. See the **[install &
-configuration guide](docs/guide/install.md)**.
+Then open **<http://localhost:8005/dashboard/>**. It comes up with realistic sample data so you can
+explore the whole instrument before any sensor exists. When you're ready for real readings, edit
+`server/weather.toml` (comment out the `[development]` block and set your sensor's address) — the
+**[install & configuration guide](docs/guide/install.md)** walks through every step, terminal and all.
 
-(For a permanent install with a systemd service + firewall: `sudo ./install.sh` — see the install
-guide.)
+(For a permanent, runs-at-boot install with a systemd service + firewall: `sudo ./install.sh` — see the
+install guide.)
+
+## Why it keeps working when the internet doesn't
+
+![The same dashboard offline — the violet METAR panel dims to "NO FEED" while the cyan local panels stay bright and live](docs/assets/screenshots/dashboard-offline.png)
+
+Your field's own readings never depend on a network. If the internet feed drops, **only the violet
+(internet-sourced) METAR panel dims** — every **cyan** local panel (density altitude, altimeter, wind,
+the runway solution) **stays bright and keeps updating**. That asymmetry is deliberate, and it's the
+heart of the design.
 
 ## Architecture (in brief)
 
+For the technically inclined:
+
 - **One source of truth:** a read-only, versioned HTTP API under `/api/v1/`. Every client (dashboard,
   tray widget) polls the same endpoints — no per-client math.
-- **The DB stores RAW sensor readings only;** every conversion / derived value (density altitude,
+- **The database stores RAW sensor readings only;** every conversion / derived value (density altitude,
   altimeter setting, vane-corrected wind, runway components) is computed at **read time**. Bug fixes
   apply retroactively to all history — no backfill.
 - **Offline-first:** the server starts, serves, and logs with no internet. The only thing that differs
   online vs offline is the optional `external` (METAR/model) block.
-- **Provenance is visible on the dashboard:** **cyan** = your LOCAL sensors (always live); **violet** =
-  internet-sourced (may be absent, and *dims* when the feed is gone, while the cyan panels stay
-  bright). See the **[dashboard tour](docs/guide/dashboard.md)**.
+- **Provenance is visible:** **cyan** = your LOCAL sensors (always live); **violet** = internet-sourced
+  (may be absent, and *dims* when the feed is gone). See the
+  **[dashboard tour](docs/guide/dashboard.md)**.
+
+The outdoor suite is **BME280 + GPS + anemometer** (no light sensor — sky/cloud come from METAR). The
+anemometer can mount three ways (all-in-one, a remote anemometer on a cable, or an opt-in separate wind
+station); a config knob selects the source and a freshness guard nulls stale wind so a dead sensor never
+reads as current. Details and the trade-offs are in the [hardware guide](docs/guide/hardware.md) and
+[ADR-0006](docs/adr/0006-flexible-anemometer-topology.md).
 
 ## Documentation
 
-- **[Hardware & build](docs/guide/hardware.md)** — sensors, ESP32 pinout, wiring, flashing, vane
-  calibration, siting.
-- **[Install & configuration](docs/guide/install.md)** — server install, the systemd service, the
-  `weather.toml` walkthrough, the demo path, the DB migration, bundled data.
-- **[Dashboard tour](docs/guide/dashboard.md)** — how to read the instrument.
-- **[Verification checklist](docs/guide/verification.md)** — "did my deployment work?", end to end.
+- **[Hardware & build](docs/guide/hardware.md)** — parts, ESP32 pinout, wiring, flashing, vane
+  calibration, siting, the three mounting topologies.
+- **[Install & configuration](docs/guide/install.md)** — a gentle terminal on-ramp, the demo path, the
+  systemd service, and every `weather.toml` setting.
+- **[Dashboard tour](docs/guide/dashboard.md)** — how to read the instrument, panel by panel.
+- **[Verification checklist](docs/guide/verification.md)** — how to know it's working, end to end.
+- **[Future work](docs/future-work.md)** — what's deliberately deferred, and why.
 - **[Design docs](docs/design/)** and **[architecture decisions](docs/adr/)** — the *why* behind the
   build (offline-first, local-first wind, the unofficial stance).
 

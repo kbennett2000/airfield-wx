@@ -25,6 +25,12 @@ dev = [
     "mypy>=1.10",
     "types-requests>=2.31",
 ]
+# Tooling that is NOT part of the runtime or the fast `make check` gate.
+# Playwright drives a headless browser to regenerate the dashboard
+# screenshots in docs/assets/screenshots/ (see `make screenshots`).
+tooling = [
+    "playwright>=1.40",
+]
 
 [project.scripts]
 weather-server = "weather_server.main:run"
