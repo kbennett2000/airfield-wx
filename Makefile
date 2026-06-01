@@ -4,7 +4,9 @@
 #   make install     first-time setup: create venv, install server in editable mode
 #   make dev         run uvicorn with --reload against ./server (port 8005)
 #   make serve       run uvicorn without --reload (closer to production)
-#   make test        run the server pytest suite
+#   make test        run the fast unit suite (integration tests deselected)
+#   make test-integration  run only the integration tests (real HTTP/timing)
+#   make test-all    run the full suite (unit + integration)
 #   make lint        run ruff against the server package
 #   make typecheck   run mypy against the server package
 #   make check       lint + typecheck + test
@@ -30,7 +32,7 @@ PORT   ?= 8005
 # the server venv doesn't expose.
 SYSPY := /usr/bin/python3
 
-.PHONY: help install dev serve test lint typecheck check widget data-refresh clean distclean
+.PHONY: help install dev serve test test-integration test-all lint typecheck check widget data-refresh clean distclean
 
 OURAIRPORTS_DIR := server/weather_server/data/ourairports
 OURAIRPORTS_URL := https://davidmegginson.github.io/ourairports-data
@@ -49,8 +51,14 @@ dev: ## uvicorn --reload (port 8005, listens on all interfaces)
 serve: ## uvicorn without --reload
 	cd server && ../$(VENV)/bin/uvicorn weather_server.main:app --host $(HOST) --port $(PORT)
 
-test: ## pytest in the server package
+test: ## fast unit suite (integration tests deselected via addopts)
 	cd server && ../$(VENV)/bin/pytest -q
+
+test-integration: ## run only the integration tests (real HTTP + timing)
+	cd server && ../$(VENV)/bin/pytest -q -m integration
+
+test-all: ## run the full suite — unit + integration
+	cd server && ../$(VENV)/bin/pytest -q -m "integration or not integration"
 
 lint: ## ruff check on the server package
 	cd server && ../$(VENV)/bin/ruff check weather_server tests

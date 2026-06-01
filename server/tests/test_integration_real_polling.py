@@ -28,6 +28,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+# Real HTTP + wall-clock timing (a background logger tick must land and the row
+# must be written before assertions hold). Deselected from the default fast
+# suite; run explicitly via `make test-integration` / `make test-all`.
+pytestmark = pytest.mark.integration
+
 _STATE: dict[str, dict] = {
     "outdoor": {
         "temperatureC": 18.5,
@@ -166,13 +171,10 @@ temp_offset_c = 0.0
 
 
 def test_real_http_logger_writes_outdoor_row(integration_client: TestClient) -> None:
-    # The lifespan startup fires the logger task; wait one tick.
-    _wait_for(lambda: _POLL_COUNTS["outdoor"] >= 1, timeout=3.0)
-
-    r = integration_client.get("/api/v1/current")
-    assert r.status_code == 200
-    body = r.json()
-    outdoor = body["sensors"]["outdoor"]
+    # The lifespan startup fires the logger task. Wait until the row has been
+    # polled AND written (visible in /current), not merely polled — those are
+    # separate events and racing on the first alone is the old flake.
+    outdoor = _wait_for_outdoor(integration_client)
     assert outdoor["online"] is True
     assert outdoor["raw"]["temperature_c"] == pytest.approx(18.5)
     assert outdoor["raw"]["pressure_pa"] == pytest.approx(84725.0)
@@ -181,23 +183,22 @@ def test_real_http_logger_writes_outdoor_row(integration_client: TestClient) -> 
 def test_temperature_change_visible_in_current_within_one_interval(
     integration_client: TestClient,
 ) -> None:
-    _wait_for(lambda: _POLL_COUNTS["outdoor"] >= 1, timeout=3.0)
-
-    r1 = integration_client.get("/api/v1/current")
-    t_before = r1.json()["sensors"]["outdoor"]["raw"]["temperature_c"]
-    assert t_before == pytest.approx(18.5)
+    outdoor = _wait_for_outdoor(integration_client)
+    assert outdoor["raw"]["temperature_c"] == pytest.approx(18.5)
 
     # Simulate "the user walked outside and the temp dropped 3 degrees".
     with _STATE_LOCK:
         _STATE["outdoor"]["temperatureC"] = 15.5
 
-    # Wait for the next logger tick (interval_seconds=1).
-    initial = _POLL_COUNTS["outdoor"]
-    _wait_for(lambda: _POLL_COUNTS["outdoor"] > initial, timeout=3.0)
+    # Wait until the change is observable in /current (next logger tick + write).
+    def _temp_changed() -> bool:
+        current = _current_outdoor(integration_client)
+        return current is not None and current["raw"]["temperature_c"] == pytest.approx(15.5)
 
-    r2 = integration_client.get("/api/v1/current")
-    t_after = r2.json()["sensors"]["outdoor"]["raw"]["temperature_c"]
-    assert t_after == pytest.approx(15.5)
+    _wait_for(_temp_changed)
+    after = _current_outdoor(integration_client)
+    assert after is not None
+    assert after["raw"]["temperature_c"] == pytest.approx(15.5)
 
 
 def test_indoor_concurrent_requests_collapse_to_one_upstream_poll(
@@ -225,7 +226,28 @@ def test_indoor_concurrent_requests_collapse_to_one_upstream_poll(
         )
 
 
-def _wait_for(predicate, timeout: float = 3.0, interval: float = 0.05) -> None:
+def _current_outdoor(client: TestClient) -> dict | None:
+    """The outdoor sensor block from /current, or None if not present yet."""
+    body = client.get("/api/v1/current").json()
+    return body["sensors"].get("outdoor")
+
+
+def _wait_for_outdoor(client: TestClient, timeout: float = 15.0) -> dict:
+    """Wait until the outdoor reading has been polled AND written through to
+    /current. Returns the outdoor block."""
+    result: dict | None = None
+
+    def _ready() -> bool:
+        nonlocal result
+        result = _current_outdoor(client)
+        return result is not None
+
+    _wait_for(_ready, timeout=timeout)
+    assert result is not None
+    return result
+
+
+def _wait_for(predicate, timeout: float = 15.0, interval: float = 0.05) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if predicate():

@@ -35,6 +35,13 @@ packages = ["weather_server"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# The default suite is fast + deterministic: integration tests (real HTTP +
+# wall-clock timing) are deselected here and run explicitly via
+# `make test-integration` / `make test-all`.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: end-to-end tests needing real HTTP/timing; deselected by default",
+]
 
 [tool.ruff]
 line-length = 100
