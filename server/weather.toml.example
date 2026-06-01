@@ -50,6 +50,21 @@ cross_check = false
 # lat_override = 0.0          # default: outdoor GPS, then its fallback_lat/lon
 # lon_override = 0.0
 
+# Airport / location intelligence. All optional: with nothing set, the nearest
+# airport is resolved from the bundled OurAirports data using the outdoor GPS.
+[airport]
+# ident = "____"               # override the auto-detected field by ICAO/local ident
+crosswind_limit_kt = 15        # parsed now; used by the runway calculator (Cycle 4)
+# field_elevation_ft = 0       # manual override (else: published value, then GPS)
+#
+# Manual runway entry for a strip not in OurAirports. Headings are MAGNETIC
+# (what's painted on the runway); the engine derives true via WMM variation.
+# [[airport.runways]]
+#   ident = "12/30"
+#   le_heading_magnetic_deg = 120
+#   length_ft = 1700
+#   surface = "gravel"
+
 [[sensors]]
 id = "outdoor"
 role = "outdoor"

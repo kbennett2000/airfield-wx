@@ -63,6 +63,29 @@ class ExternalConfig:
 
 
 @dataclass(frozen=True)
+class AirportRunwayConfig:
+    """A manually-entered runway for a strip not in OurAirports. Headings are
+    given as magnetic (what's painted on the runway); the engine derives true
+    via the WMM variation."""
+
+    ident: str
+    le_heading_magnetic_deg: float | None = None
+    length_ft: float | None = None
+    surface: str | None = None
+
+
+@dataclass(frozen=True)
+class AirportConfig:
+    """[airport] block. All optional: default is GPS-nearest from OurAirports.
+    `crosswind_limit_kt` is parsed now and consumed in Cycle 4."""
+
+    ident: str | None = None
+    field_elevation_ft: float | None = None
+    crosswind_limit_kt: float | None = None
+    runways: tuple[AirportRunwayConfig, ...] = ()
+
+
+@dataclass(frozen=True)
 class SensorConfig:
     id: str
     role: str
@@ -83,6 +106,7 @@ class Config:
     cache: CacheConfig
     development: DevelopmentConfig
     external: ExternalConfig = field(default_factory=ExternalConfig)
+    airport: AirportConfig = field(default_factory=AirportConfig)
     sensors: list[SensorConfig] = field(default_factory=list)
 
     def sensor_by_id(self, sensor_id: str) -> SensorConfig | None:
@@ -122,6 +146,7 @@ def _parse(raw: dict[str, Any]) -> Config:
     cache = CacheConfig(**raw.get("cache", {}))
     development = DevelopmentConfig(**raw.get("development", {}))
     external = _parse_external(raw.get("external", {}))
+    airport = _parse_airport(raw.get("airport", {}))
     sensors_raw = raw.get("sensors", [])
     sensors = [SensorConfig(**s) for s in sensors_raw]
     if not sensors:
@@ -137,8 +162,16 @@ def _parse(raw: dict[str, Any]) -> Config:
         cache=cache,
         development=development,
         external=external,
+        airport=airport,
         sensors=sensors,
     )
+
+
+def _parse_airport(raw: dict[str, Any]) -> AirportConfig:
+    data = dict(raw)
+    runways_raw = data.pop("runways", [])
+    runways = tuple(AirportRunwayConfig(**r) for r in runways_raw)
+    return AirportConfig(**data, runways=runways)
 
 
 def _parse_external(raw: dict[str, Any]) -> ExternalConfig:

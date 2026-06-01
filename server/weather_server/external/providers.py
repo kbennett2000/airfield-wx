@@ -29,6 +29,7 @@ from typing import Any
 import requests
 
 from ..config import ExternalConfig
+from ..geo import haversine_km
 
 log = logging.getLogger(__name__)
 
@@ -71,15 +72,6 @@ def cardinal_from_deg(deg: float | None) -> str | None:
         return None
     idx = int((deg % 360.0) / 22.5 + 0.5) % 16
     return _CARDINALS[idx]
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return r * 2 * math.asin(math.sqrt(a))
 
 
 def _default_http_get(url: str, headers: dict[str, str] | None, timeout: float) -> Any:

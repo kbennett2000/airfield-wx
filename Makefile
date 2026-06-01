@@ -9,6 +9,7 @@
 #   make typecheck   run mypy against the server package
 #   make check       lint + typecheck + test
 #   make widget      run the new tray widget with the SYSTEM python (needs gi)
+#   make data-refresh re-download the bundled OurAirports CSVs
 #   make clean       remove pycache, .pytest_cache, ruff/mypy caches
 #   make distclean   clean + nuke the server venv and weather.db
 
@@ -29,7 +30,10 @@ PORT   ?= 8005
 # the server venv doesn't expose.
 SYSPY := /usr/bin/python3
 
-.PHONY: help install dev serve test lint typecheck check widget clean distclean
+.PHONY: help install dev serve test lint typecheck check widget data-refresh clean distclean
+
+OURAIRPORTS_DIR := server/weather_server/data/ourairports
+OURAIRPORTS_URL := https://davidmegginson.github.io/ourairports-data
 
 help:
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z_-]+:.*## /{printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,6 +62,12 @@ check: lint typecheck test ## All gates: lint + typecheck + test
 
 widget: ## Run the new tray widget (uses system python for gi)
 	$(SYSPY) widget/weather_tray.py
+
+data-refresh: ## Re-download the bundled OurAirports CSVs (public domain)
+	mkdir -p $(OURAIRPORTS_DIR)
+	curl -fsS $(OURAIRPORTS_URL)/airports.csv -o $(OURAIRPORTS_DIR)/airports.csv
+	curl -fsS $(OURAIRPORTS_URL)/runways.csv -o $(OURAIRPORTS_DIR)/runways.csv
+	@echo "refreshed OurAirports data in $(OURAIRPORTS_DIR)"
 
 clean: ## Remove pycache + tool caches (preserves venv and db)
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
