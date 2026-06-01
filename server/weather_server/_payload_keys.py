@@ -15,6 +15,12 @@ K_VISIBLE = "visible"
 # as `full` per 02-api-design.md.
 K_FULL_SPECTRUM = "full_spectrum"
 
+# Local anemometer (decision 4 / ADR-0003). Speed in m/s, direction in
+# degrees in the raw vane frame (north-alignment offset applied server-side).
+K_WIND_SPEED_MS = "wind_speed_ms"
+K_WIND_GUST_MS = "wind_gust_ms"
+K_WIND_DIRECTION_DEG = "wind_direction_deg"
+
 K_LATITUDE = "latitude"
 K_LONGITUDE = "longitude"
 K_ALTITUDE_M = "altitude_m"

@@ -97,6 +97,11 @@ def _outdoor_to_payload(raw: dict[str, Any]) -> dict[str, Any]:
     if ir is not None and visible is not None:
         payload["full_spectrum"] = int(ir) + int(visible)
 
+    # Local anemometer (firmware already emits m/s; degrees in raw vane frame).
+    _put_float(payload, "wind_speed_ms", raw.get("windSpeed"))
+    _put_float(payload, "wind_gust_ms", raw.get("windGust"))
+    _put_float(payload, "wind_direction_deg", raw.get("windDirection"))
+
     _put_float(payload, "latitude", raw.get("latitude"))
     _put_float(payload, "longitude", raw.get("longitude"))
     _put_float(payload, "altitude_m", raw.get("altitude"))
