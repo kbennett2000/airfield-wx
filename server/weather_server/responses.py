@@ -20,6 +20,7 @@ from .derivations import readings as rd
 from .derivations.airport import AirportInfo, resolve_airport
 from .derivations.runway import RunwaySolution as RunwaySolutionData
 from .derivations.runway import runway_solution
+from .derivations.wind import ResolvedWind
 from .external import Observation, cardinal_from_deg
 from .schemas import (
     Airport,
@@ -57,13 +58,15 @@ def build_outdoor_reading_from_db_row(
     sensor: SensorConfig,
     row: sqlite3.Row,
     server_time: datetime,
+    *,
+    resolved_wind: ResolvedWind | None = None,
 ) -> SensorReading:
     reading_ts = datetime.fromtimestamp(int(row["timestamp"]), tz=UTC)
     age = (server_time - reading_ts).total_seconds()
     online = age < sensor.online_threshold_seconds
 
     payload = _row_to_payload(row)
-    return _build_reading(sensor, payload, reading_ts, age, online)
+    return _build_reading(sensor, payload, reading_ts, age, online, resolved_wind)
 
 
 def build_live_reading(
@@ -83,29 +86,33 @@ def _build_reading(
     reading_ts: datetime,
     age: float,
     online: bool,
+    resolved_wind: ResolvedWind | None = None,
 ) -> SensorReading:
     derived = rd.derive_reading(
         payload,
         temp_offset_c=sensor.temp_offset_c,
         fallback_altitude_m=sensor.fallback_altitude_m,
-        has_wind=sensor.has_wind,
-        wind_vane_offset_deg=sensor.wind_vane_offset_deg,
     )
     raw_block = rd.map_raw(payload, has_wind=sensor.has_wind)
     location_block = _build_location_block(payload) if sensor.has_gps else None
     device_block = _build_device_block(payload)
     sky_block = _build_sky_block(sensor, payload, reading_ts)
 
-    # Wind-fused comfort indices (D-READING) from LOCAL wind. Wind speed is
-    # already has_wind-gated by map_raw; solar comes from the (dormant unless a
-    # light sensor is present) sky block, so THSW/ET0 are null without light.
+    # Wind-derived fields are origin-agnostic and freshness-guarded: they come
+    # from the read-time wind resolver (ADR-0006), not this sensor's own raw
+    # block. The true direction already has the source device's vane offset
+    # applied. Solar comes from the (light-sensor-dependent) sky block, so
+    # THSW/ET0 stay null without light.
+    fused_wind_ms = resolved_wind.speed_ms if resolved_wind is not None else None
+    if resolved_wind is not None and resolved_wind.direction_true_deg is not None:
+        derived["wind_direction_true_deg"] = resolved_wind.direction_true_deg
     solar = sky_block.solar_irradiance_w_m2 if sky_block is not None else None
     derived.update(
         fused.fused_indices(
             derived.get("temperature_c"),
             payload.get("humidity_pct"),
             payload.get("pressure_pa"),
-            raw_block.get("wind_speed_ms"),
+            fused_wind_ms,
             solar,
         )
     )
@@ -478,17 +485,17 @@ def _resolve_reference_altitude(
     return None
 
 
-def _local_wind(outdoor_reading: SensorReading | None) -> tuple[float | None, float | None]:
-    """The current LOCAL wind as (FROM-direction TRUE deg, speed kt).
+def _local_wind(resolved_wind: ResolvedWind | None) -> tuple[float | None, float | None]:
+    """The current LOCAL field wind as (FROM-direction TRUE deg, speed kt),
+    from the wind resolver (ADR-0006) — origin-agnostic and freshness-guarded.
 
-    Reads the derived true-direction wind and the raw m/s speed that the
-    anemometer adds in Cycle 6. Until then those fields are absent, so this
-    returns (None, None) and the runway solution stays null. Never the
-    external/model wind (decision 6)."""
-    if outdoor_reading is None:
+    Stale or absent wind ⇒ (None, None) and the runway solution stays null:
+    never compute a favored runway from a dead sensor. Never the external/model
+    wind (decision 6)."""
+    if resolved_wind is None:
         return None, None
-    direction: float | None = getattr(outdoor_reading.derived, "wind_direction_true_deg", None)
-    speed_ms: float | None = getattr(outdoor_reading.raw, "wind_speed_ms", None)
+    direction = resolved_wind.direction_true_deg
+    speed_ms = resolved_wind.speed_ms
     speed_kt = speed_ms * MS_TO_KT if speed_ms is not None else None
     return direction, speed_kt
 
@@ -514,6 +521,7 @@ def build_airport(
     config: Config,
     outdoor_reading: SensorReading | None,
     *,
+    resolved_wind: ResolvedWind | None = None,
     lat_override: float | None = None,
     lon_override: float | None = None,
 ) -> Airport | None:
@@ -531,7 +539,7 @@ def build_airport(
     if info is None:
         return None
 
-    wind_from_true_deg, wind_speed_kt = _local_wind(outdoor_reading)
+    wind_from_true_deg, wind_speed_kt = _local_wind(resolved_wind)
     solution = runway_solution(
         info.runways, wind_from_true_deg, wind_speed_kt, config.airport.crosswind_limit_kt
     )

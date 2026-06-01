@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from .. import db as db_module
 from ..cache import TTLCache
 from ..config import SensorConfig
+from ..derivations.wind import resolve_wind
 from ..responses import (
     build_airport,
     build_astronomy,
@@ -45,13 +46,22 @@ async def get_current(request: Request) -> CurrentResponse:
 
     outdoor_cfg = config.outdoor
     outdoor_reading: SensorReading | None = None
-    if outdoor_cfg is not None:
-        row = db_module.latest_outdoor_reading(db)
-        if row is not None:
-            outdoor_reading = build_outdoor_reading_from_db_row(outdoor_cfg, row, server_time)
-            sensors_out[outdoor_cfg.id] = outdoor_reading
+    outdoor_row = db_module.latest_outdoor_reading(db) if outdoor_cfg is not None else None
+    wind_row = (
+        db_module.latest_wind_reading(db) if config.wind.source != "outdoor" else None
+    )
+    resolved_wind = resolve_wind(
+        config, server_time, outdoor_row=outdoor_row, wind_row=wind_row
+    )
+    if outdoor_cfg is not None and outdoor_row is not None:
+        outdoor_reading = build_outdoor_reading_from_db_row(
+            outdoor_cfg, outdoor_row, server_time, resolved_wind=resolved_wind
+        )
+        sensors_out[outdoor_cfg.id] = outdoor_reading
 
-    other = [s for s in config.sensors if s.role != "outdoor"]
+    # The wind-source station (topology 3) is a logged data source, not a
+    # display sensor: it feeds the resolver and is not shown in /current.
+    other = [s for s in config.sensors if s.role not in ("outdoor", "wind_station")]
     poll_results = await asyncio.gather(
         *(_poll_with_cache(cache, source, s, ttl=config.cache.ttl_seconds) for s in other),
         return_exceptions=True,
@@ -68,7 +78,9 @@ async def get_current(request: Request) -> CurrentResponse:
         stale_after_seconds=external_stale_after(config),
         outdoor_reading=outdoor_reading,
     )
-    airport = build_airport(server_time, config, outdoor_reading)
+    airport = build_airport(
+        server_time, config, outdoor_reading, resolved_wind=resolved_wind
+    )
     return CurrentResponse(
         server_time=server_time,
         sensors=sensors_out,
@@ -86,7 +98,9 @@ async def get_current(request: Request) -> CurrentResponse:
 async def get_current_one(sensor_id: str, request: Request) -> CurrentSensorResponse:
     config = request.app.state.config
     sensor_cfg = config.sensor_by_id(sensor_id)
-    if sensor_cfg is None:
+    # The wind-source station is a logged data source, not a display sensor —
+    # it has no standalone /current view (it feeds the resolver instead).
+    if sensor_cfg is None or sensor_cfg.role == "wind_station":
         raise HTTPException(status_code=404, detail=("sensor_not_found", sensor_id))
 
     server_time = utc_now()
@@ -100,7 +114,17 @@ async def get_current_one(sensor_id: str, request: Request) -> CurrentSensorResp
         row = db_module.latest_outdoor_reading(db)
         if row is None:
             raise HTTPException(status_code=503, detail=("sensor_no_data", sensor_id))
-        reading = build_outdoor_reading_from_db_row(sensor_cfg, row, server_time)
+        wind_row = (
+            db_module.latest_wind_reading(db)
+            if config.wind.source != "outdoor"
+            else None
+        )
+        resolved_wind = resolve_wind(
+            config, server_time, outdoor_row=row, wind_row=wind_row
+        )
+        reading = build_outdoor_reading_from_db_row(
+            sensor_cfg, row, server_time, resolved_wind=resolved_wind
+        )
     else:
         try:
             payload = await _poll_with_cache(

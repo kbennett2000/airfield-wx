@@ -336,29 +336,23 @@ def derive_reading(
     *,
     temp_offset_c: float = 0.0,
     fallback_altitude_m: float | None = None,
-    has_wind: bool = False,
-    wind_vane_offset_deg: float = 0.0,
 ) -> dict[str, Any]:
     """Compute every D-READING / CALIBRATED field from a SensorPayload.
 
     Missing inputs cascade to None outputs; nothing raises. Sea-level
     pressure prefers the live GPS altitude in the payload, then falls
-    back to the configured altitude, then to None. The vane-corrected wind
-    direction is computed only when the station has an anemometer
-    (``has_wind``) and a raw direction is present.
+    back to the configured altitude, then to None.
+
+    Wind is *not* derived here. The vane-corrected true direction and the
+    wind-fused comfort indices are origin-agnostic and computed from the
+    read-time wind resolver (derivations/wind.py — ADR-0006); the composer
+    merges them in. This keeps a single wind authority regardless of topology.
     """
     out: dict[str, Any] = {}
 
     raw_temp_c = payload.get(K_TEMP_C)
     raw_humidity = payload.get(K_HUMIDITY)
     raw_pressure_pa = payload.get(K_PRESSURE_PA)
-
-    if has_wind:
-        raw_wind_dir = payload.get(K_WIND_DIRECTION_DEG)
-        if raw_wind_dir is not None:
-            out["wind_direction_true_deg"] = wind_direction_true_deg(
-                raw_wind_dir, wind_vane_offset_deg
-            )
 
     cal_temp_c: float | None = None
     if raw_temp_c is not None:

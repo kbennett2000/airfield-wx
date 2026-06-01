@@ -21,6 +21,19 @@ http_timeout_seconds = 10
 [cache]
 ttl_seconds = 5
 
+# Flexible anemometer topology (decision 16 / ADR-0006). `source` selects where
+# field wind comes from:
+#   "outdoor"  (default) — wind rides the outdoor payload: an all-in-one unit, or
+#               a remote anemometer cabled to the same ESP32. No second device.
+#   "<id>"     — the id of a dedicated, logged wind-station [[sensors]] entry
+#               (topology 3; see the commented example at the bottom of this file).
+# `max_age_s` is the freshness guard: wind older than this is treated as stale and
+# the wind-derived fields (incl. the favored-runway solution) are nulled — never
+# present dead-sensor wind as current. ~60–120 s is sensible.
+[wind]
+source = "outdoor"
+max_age_s = 90
+
 # Set [development] fixture_dir to a directory containing outdoor.json
 # (plus a <sensor-id>.json for any additional station) to read from local
 # fixtures instead of polling real ESP32s — useful for offline development.
@@ -89,3 +102,16 @@ wind_vane_offset_deg = 0.0      # align the raw vane reading to true north
 fallback_altitude_m = 1609.3   # used for sea-level adjustment if GPS has no fix
 fallback_lat = 0.0             # used by astronomy if GPS has no fix
 fallback_lon = 0.0             # used by astronomy if GPS has no fix
+
+# OPTIONAL separate wind station (topology 3 — decision 16 / ADR-0006). A
+# dedicated ESP32 + anemometer at the good wind-mounting spot, no GPS, logged
+# like the outdoor unit. To enable: uncomment this block, set has_wind = false
+# on the outdoor unit above (its anemometer is gone), and point [wind] source at
+# this id. The vane offset travels with the device holding the anemometer.
+# [[sensors]]
+# id = "wind"
+# role = "wind_station"
+# ip = "192.168.1.61"
+# has_wind = true
+# online_threshold_seconds = 120
+# wind_vane_offset_deg = 0.0

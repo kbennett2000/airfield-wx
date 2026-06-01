@@ -383,29 +383,11 @@ def test_wind_direction_true_negative_offset_wraps() -> None:
     assert readings.wind_direction_true_deg(10.0, -15.0) == pytest.approx(355.0)
 
 
-def test_derive_reading_wind_true_with_offset() -> None:
-    derived = readings.derive_reading(
-        {"wind_direction_deg": 10.0},
-        has_wind=True,
-        wind_vane_offset_deg=5.0,
-    )
-    assert derived["wind_direction_true_deg"] == pytest.approx(15.0)
-
-
-def test_derive_reading_wind_true_absent_without_raw_direction() -> None:
-    derived = readings.derive_reading(
-        {"wind_speed_ms": 5.0},  # speed but no direction
-        has_wind=True,
-    )
-    assert "wind_direction_true_deg" not in derived
-
-
-def test_derive_reading_wind_true_absent_when_has_wind_false() -> None:
-    derived = readings.derive_reading(
-        {"wind_direction_deg": 10.0},
-        has_wind=False,
-        wind_vane_offset_deg=5.0,
-    )
+def test_derive_reading_does_not_emit_wind_true() -> None:
+    # Wind is no longer derived here: the read-time resolver (derivations/wind.py)
+    # is the single, origin-agnostic authority for the vane-corrected direction
+    # (ADR-0006). derive_reading ignores any wind in the payload.
+    derived = readings.derive_reading({"wind_direction_deg": 10.0})
     assert "wind_direction_true_deg" not in derived
 
 

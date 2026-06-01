@@ -44,8 +44,63 @@ def _build_v1_db(path: Path, rows: list[tuple[int, float]]) -> None:
     c.close()
 
 
+# The v2 schema (pre-separate-wind-station): outdoor_readings WITH the wind
+# columns, but no wind_readings table. Used to prove the v2→v3 migration is
+# additive and lossless against a populated old deployment.
+_V2_SCHEMA_SQL = """
+CREATE TABLE outdoor_readings (
+    id              INTEGER PRIMARY KEY,
+    timestamp       INTEGER NOT NULL,
+    temperature_c   REAL,
+    humidity_pct    REAL,
+    pressure_pa     REAL,
+    lux             REAL,
+    ir              INTEGER,
+    visible         INTEGER,
+    full_spectrum   INTEGER,
+    latitude        REAL,
+    longitude       REAL,
+    altitude_m      REAL,
+    satellites      INTEGER,
+    speed_kmh       REAL,
+    course_deg      REAL,
+    wind_speed_ms       REAL,
+    wind_gust_ms        REAL,
+    wind_direction_deg  REAL,
+    rssi_dbm        INTEGER,
+    uptime_s        INTEGER,
+    free_heap_bytes INTEGER
+);
+"""
+
+
+def _build_v2_db(path: Path, rows: list[tuple[int, float, float]]) -> None:
+    """Create a populated v2-shaped DB (user_version=2, wind columns present
+    on outdoor_readings, no wind_readings table). Each row is
+    (timestamp, temperature_c, wind_speed_ms)."""
+    c = sqlite3.connect(str(path), isolation_level=None)
+    c.executescript(_V2_SCHEMA_SQL)
+    for ts, temp, wind in rows:
+        c.execute(
+            "INSERT INTO outdoor_readings (timestamp, temperature_c, wind_speed_ms) "
+            "VALUES (?, ?, ?)",
+            (ts, temp, wind),
+        )
+    c.execute("PRAGMA user_version = 2")
+    c.close()
+
+
 def _columns(conn: sqlite3.Connection) -> set[str]:
     return {r[1] for r in conn.execute("PRAGMA table_info(outdoor_readings)").fetchall()}
+
+
+def _tables(conn: sqlite3.Connection) -> set[str]:
+    return {
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
 
 
 @pytest.fixture
@@ -135,11 +190,12 @@ def test_db_ok(conn) -> None:
 # ── schema migration (v1 → v2) ────────────────────────────────────────────────
 
 
-def test_fresh_init_is_v2_with_wind_columns(tmp_path: Path) -> None:
+def test_fresh_init_is_v3_with_wind_columns_and_table(tmp_path: Path) -> None:
     c = db.init_db(tmp_path / "fresh.db")
-    assert c.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert c.execute("PRAGMA user_version").fetchone()[0] == 3
     cols = _columns(c)
     assert {"wind_speed_ms", "wind_gust_ms", "wind_direction_deg"} <= cols
+    assert "wind_readings" in _tables(c)
     c.close()
 
 
@@ -154,8 +210,8 @@ def test_migrate_v1_to_v2_preserves_all_rows(tmp_path: Path) -> None:
     assert "wind_speed_ms" not in _columns(pre)
     pre.close()
 
-    c = db.init_db(p)  # migrates forward
-    assert c.execute("PRAGMA user_version").fetchone()[0] == 2
+    c = db.init_db(p)  # migrates forward v1 → v3
+    assert c.execute("PRAGMA user_version").fetchone()[0] == 3
     assert {"wind_speed_ms", "wind_gust_ms", "wind_direction_deg"} <= _columns(c)
 
     # Every original row preserved, in order, with NULL wind.
@@ -176,22 +232,87 @@ def test_migrate_v1_to_v2_preserves_all_rows(tmp_path: Path) -> None:
 def test_migration_is_idempotent(tmp_path: Path) -> None:
     p = tmp_path / "legacy.db"
     _build_v1_db(p, [(1000, 10.0)])
-    db.init_db(p).close()  # v1 → v2
-    # Opening the already-migrated DB must not re-run ALTERs or error.
+    db.init_db(p).close()  # v1 → v3
+    # Opening the already-migrated DB must not re-run ALTERs/CREATEs or error.
     c2 = db.init_db(p)
-    assert c2.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert c2.execute("PRAGMA user_version").fetchone()[0] == 3
     assert c2.execute("SELECT COUNT(*) FROM outdoor_readings").fetchone()[0] == 1
     c2.close()
 
 
 def test_newer_db_version_raises(tmp_path: Path) -> None:
     p = tmp_path / "future.db"
-    db.init_db(p).close()  # v2
+    db.init_db(p).close()  # v3
     c = sqlite3.connect(str(p), isolation_level=None)
-    c.execute("PRAGMA user_version = 3")
+    c.execute("PRAGMA user_version = 4")
     c.close()
     with pytest.raises(RuntimeError, match="version"):
         db.init_db(p)
+
+
+# ── schema migration (v2 → v3: separate wind station) ──────────────────────────
+
+
+def test_migrate_v2_to_v3_adds_wind_table_and_preserves_rows(tmp_path: Path) -> None:
+    p = tmp_path / "legacy_v2.db"
+    rows = [(1000, 10.0, 3.0), (2000, 11.5, 4.2), (3000, 12.25, 0.0)]
+    _build_v2_db(p, rows)
+
+    # Sanity: a real v2 DB — wind columns present, no wind_readings table.
+    pre = sqlite3.connect(str(p))
+    assert pre.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert "wind_speed_ms" in _columns(pre)
+    assert "wind_readings" not in _tables(pre)
+    pre.close()
+
+    c = db.init_db(p)  # migrates forward v2 → v3
+    assert c.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert "wind_readings" in _tables(c)
+    # The new table starts empty.
+    assert c.execute("SELECT COUNT(*) FROM wind_readings").fetchone()[0] == 0
+
+    # Every outdoor row preserved untouched, including its wind columns.
+    got = c.execute(
+        "SELECT timestamp, temperature_c, wind_speed_ms FROM outdoor_readings "
+        "ORDER BY timestamp"
+    ).fetchall()
+    assert [(r["timestamp"], r["temperature_c"], r["wind_speed_ms"]) for r in got] == rows
+    c.close()
+
+
+def test_migrate_v2_to_v3_is_idempotent(tmp_path: Path) -> None:
+    p = tmp_path / "legacy_v2.db"
+    _build_v2_db(p, [(1000, 10.0, 3.0)])
+    db.init_db(p).close()  # v2 → v3
+    c2 = db.init_db(p)
+    assert c2.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert c2.execute("SELECT COUNT(*) FROM outdoor_readings").fetchone()[0] == 1
+    assert "wind_readings" in _tables(c2)
+    c2.close()
+
+
+def test_wind_readings_insert_and_latest_round_trip(conn) -> None:
+    db.insert_wind_reading(
+        conn,
+        timestamp=7000,
+        payload={
+            "wind_speed_ms": 6.4,
+            "wind_gust_ms": 9.1,
+            "wind_direction_deg": 200.0,
+            "rssi_dbm": -55,
+            "uptime_s": 12345,
+        },
+    )
+    row = db.latest_wind_reading(conn)
+    assert row is not None
+    assert row["timestamp"] == 7000
+    assert row["wind_speed_ms"] == pytest.approx(6.4)
+    assert row["wind_direction_deg"] == pytest.approx(200.0)
+    assert row["rssi_dbm"] == -55
+
+
+def test_latest_wind_reading_none_on_empty(conn) -> None:
+    assert db.latest_wind_reading(conn) is None
 
 
 def test_logger_persists_wind_columns(conn) -> None:

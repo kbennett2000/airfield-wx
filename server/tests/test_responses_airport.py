@@ -8,13 +8,13 @@ wind to exercise the composer path.
 from __future__ import annotations
 
 from datetime import datetime
-from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from weather_server import responses
 from weather_server.config import Config, load_config_from_dict
+from weather_server.derivations.wind import ResolvedWind
 
 
 def _config(**airport: object) -> Config:
@@ -31,32 +31,41 @@ def _config(**airport: object) -> Config:
 WHEN = datetime(2026, 6, 1)
 
 
-# ── _local_wind: m/s -> kt and the Cycle 6 field contract ──────────────────
+# ── _local_wind: resolver output -> (true dir, kt) ─────────────────────────
+
+
+def _resolved(speed_ms: float | None, direction_true_deg: float | None) -> ResolvedWind:
+    return ResolvedWind(
+        speed_ms=speed_ms,
+        gust_ms=None,
+        direction_true_deg=direction_true_deg,
+        age_s=0.0,
+        source_id="outdoor",
+        stale=False,
+    )
 
 
 def test_local_wind_converts_ms_to_kt() -> None:
-    reading = SimpleNamespace(
-        derived=SimpleNamespace(wind_direction_true_deg=270.0),
-        raw=SimpleNamespace(wind_speed_ms=5.0),
-    )
-    direction, speed_kt = responses._local_wind(reading)  # type: ignore[arg-type]
+    direction, speed_kt = responses._local_wind(_resolved(5.0, 270.0))
     assert direction == pytest.approx(270.0)
     assert speed_kt == pytest.approx(5.0 * responses.MS_TO_KT)
 
 
-def test_local_wind_absent_today() -> None:
-    # A real reading has no wind fields yet (Cycle 6) -> (None, None).
-    reading = SimpleNamespace(derived=SimpleNamespace(), raw=SimpleNamespace())
-    assert responses._local_wind(reading) == (None, None)  # type: ignore[arg-type]
+def test_local_wind_absent_when_no_resolved_wind() -> None:
+    assert responses._local_wind(None) == (None, None)
+
+
+def test_local_wind_absent_when_resolver_nulled_it() -> None:
+    # Stale / no-anemometer ⇒ the resolver returns None values.
+    assert responses._local_wind(_resolved(None, None)) == (None, None)
 
 
 # ── build_airport composer ─────────────────────────────────────────────────
 
 
-def test_build_airport_override_with_injected_wind(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(responses, "_local_wind", lambda _r: (270.0, 10.0))
+def test_build_airport_override_with_injected_wind() -> None:
     config = _config(ident="KSEA", crosswind_limit_kt=15)
-    air = responses.build_airport(WHEN, config, None)
+    air = responses.build_airport(WHEN, config, None, resolved_wind=_resolved(10.0, 270.0))
     assert air is not None
     assert air.ident == "KSEA"
     assert air.source == "config_override"
@@ -68,7 +77,7 @@ def test_build_airport_override_with_injected_wind(monkeypatch: pytest.MonkeyPat
 
 def test_build_airport_null_solution_without_wind() -> None:
     config = _config(ident="KSEA")
-    air = responses.build_airport(WHEN, config, None)
+    air = responses.build_airport(WHEN, config, None)  # no resolved_wind
     assert air is not None
     assert air.ident == "KSEA"
     assert air.runways

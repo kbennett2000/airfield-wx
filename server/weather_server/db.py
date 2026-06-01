@@ -21,7 +21,31 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+# wind_readings: a separate, logged wind station (topology 3 — ADR-0006). Same
+# raw wind fields as the outdoor unit, plus device telemetry; no thermo/GPS. A
+# field with no separate station simply never writes here. Kept as two single
+# statements so they can be reused verbatim as v2->v3 migration steps (the
+# migration runner executes one statement per step).
+_WIND_READINGS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS wind_readings (
+    id                  INTEGER PRIMARY KEY,
+    timestamp           INTEGER NOT NULL,
+
+    wind_speed_ms       REAL,
+    wind_gust_ms        REAL,
+    wind_direction_deg  REAL,
+
+    rssi_dbm            INTEGER,
+    uptime_s            INTEGER,
+    free_heap_bytes     INTEGER
+)
+"""
+_WIND_READINGS_INDEX_SQL = (
+    "CREATE INDEX IF NOT EXISTS idx_wind_readings_timestamp "
+    "ON wind_readings (timestamp)"
+)
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS outdoor_readings (
@@ -55,16 +79,21 @@ CREATE TABLE IF NOT EXISTS outdoor_readings (
 
 CREATE INDEX IF NOT EXISTS idx_outdoor_readings_timestamp
     ON outdoor_readings (timestamp);
-"""
+""" + _WIND_READINGS_TABLE_SQL + ";\n" + _WIND_READINGS_INDEX_SQL + ";\n"
 
 # Forward-only schema migrations, keyed by the from-version. Each opens the
 # door to the next: applying _MIGRATIONS[1] takes a v1 DB to v2. ALTER TABLE
-# ADD COLUMN leaves existing rows with NULL — no data rewrite, no loss.
+# ADD COLUMN / CREATE TABLE leaves existing rows untouched — no data rewrite.
 _MIGRATIONS: dict[int, tuple[str, ...]] = {
     1: (  # v1 -> v2: local anemometer (decision 4 / ADR-0003)
         "ALTER TABLE outdoor_readings ADD COLUMN wind_speed_ms REAL",
         "ALTER TABLE outdoor_readings ADD COLUMN wind_gust_ms REAL",
         "ALTER TABLE outdoor_readings ADD COLUMN wind_direction_deg REAL",
+    ),
+    2: (  # v2 -> v3: separate wind station (decision 16 / ADR-0006). Additive:
+          # a new table only; existing outdoor_readings data is untouched.
+        _WIND_READINGS_TABLE_SQL,
+        _WIND_READINGS_INDEX_SQL,
     ),
 }
 
@@ -167,6 +196,45 @@ def latest_outdoor_reading(conn: sqlite3.Connection) -> sqlite3.Row | None:
     """Return the most recent row, or None if the table is empty."""
     row: sqlite3.Row | None = conn.execute(
         "SELECT * FROM outdoor_readings ORDER BY timestamp DESC LIMIT 1"
+    ).fetchone()
+    return row
+
+
+WIND_COLUMNS = (
+    "timestamp",
+    "wind_speed_ms",
+    "wind_gust_ms",
+    "wind_direction_deg",
+    "rssi_dbm",
+    "uptime_s",
+    "free_heap_bytes",
+)
+
+
+def insert_wind_reading(
+    conn: sqlite3.Connection,
+    timestamp: int,
+    payload: dict[str, Any],
+) -> int:
+    """Insert one separate-wind-station row. Returns the rowid.
+
+    Same payload shape as the outdoor logger; only the wind + device-telemetry
+    keys are stored. Any column not present in the payload is stored as NULL.
+    """
+    values = [timestamp] + [payload.get(c) for c in WIND_COLUMNS[1:]]
+    placeholders = ", ".join("?" for _ in WIND_COLUMNS)
+    cols = ", ".join(WIND_COLUMNS)
+    cur = conn.execute(
+        f"INSERT INTO wind_readings ({cols}) VALUES ({placeholders})",
+        values,
+    )
+    return cur.lastrowid or 0
+
+
+def latest_wind_reading(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    """Return the most recent separate-wind-station row, or None if empty."""
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM wind_readings ORDER BY timestamp DESC LIMIT 1"
     ).fetchone()
     return row
 

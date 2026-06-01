@@ -59,3 +59,38 @@ def test_rejects_duplicate_sensor_ids() -> None:
                 ]
             }
         )
+
+
+# ── [wind] block (flexible anemometer topology, ADR-0006) ──────────────────
+
+
+def test_wind_defaults_to_outdoor_source() -> None:
+    config = load_config_from_dict(
+        {"sensors": [{"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"}]}
+    )
+    assert config.wind.source == "outdoor"
+    assert config.wind.max_age_s == pytest.approx(90.0)
+
+
+def test_wind_block_parsed() -> None:
+    config = load_config_from_dict(
+        {
+            "wind": {"source": "windy", "max_age_s": 120},
+            "sensors": [
+                {"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"},
+                {"id": "windy", "role": "wind_station", "ip": "1.1.1.2", "has_wind": True},
+            ],
+        }
+    )
+    assert config.wind.source == "windy"
+    assert config.wind.max_age_s == pytest.approx(120.0)
+
+
+def test_wind_source_naming_unknown_sensor_raises() -> None:
+    with pytest.raises(ValueError, match="no configured sensor"):
+        load_config_from_dict(
+            {
+                "wind": {"source": "ghost"},
+                "sensors": [{"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"}],
+            }
+        )

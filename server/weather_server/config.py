@@ -35,6 +35,22 @@ class CacheConfig:
 
 
 @dataclass(frozen=True)
+class WindConfig:
+    """[wind] block — flexible anemometer topology (decision 16 / ADR-0006).
+
+    `source` selects where field wind is read from at request time:
+    `"outdoor"` (default — wind rides the outdoor payload, all-in-one or
+    remote-cable) or the id of a dedicated, logged wind-station sensor.
+    `max_age_s` is the freshness threshold: wind older than this is treated
+    as stale and the wind-derived fields (incl. the runway solution) are
+    nulled, never presented as current. One threshold; no broader staleness
+    model (ADR-0006)."""
+
+    source: str = "outdoor"
+    max_age_s: float = 90.0
+
+
+@dataclass(frozen=True)
 class DevelopmentConfig:
     fixture_dir: str | None = None
 
@@ -109,6 +125,7 @@ class Config:
     development: DevelopmentConfig
     external: ExternalConfig = field(default_factory=ExternalConfig)
     airport: AirportConfig = field(default_factory=AirportConfig)
+    wind: WindConfig = field(default_factory=WindConfig)
     sensors: list[SensorConfig] = field(default_factory=list)
 
     def sensor_by_id(self, sensor_id: str) -> SensorConfig | None:
@@ -149,6 +166,7 @@ def _parse(raw: dict[str, Any]) -> Config:
     development = DevelopmentConfig(**raw.get("development", {}))
     external = _parse_external(raw.get("external", {}))
     airport = _parse_airport(raw.get("airport", {}))
+    wind = WindConfig(**raw.get("wind", {}))
     sensors_raw = raw.get("sensors", [])
     sensors = [SensorConfig(**s) for s in sensors_raw]
     if not sensors:
@@ -158,6 +176,12 @@ def _parse(raw: dict[str, Any]) -> Config:
         if s.id in seen_ids:
             raise ValueError(f"duplicate sensor id: {s.id!r}")
         seen_ids.add(s.id)
+    # The wind source must be either the default outdoor payload or a
+    # configured sensor id (the dedicated wind station — topology 3).
+    if wind.source != "outdoor" and not any(s.id == wind.source for s in sensors):
+        raise ValueError(
+            f"[wind] source {wind.source!r} names no configured sensor"
+        )
     return Config(
         server=server,
         logger=logger,
@@ -165,6 +189,7 @@ def _parse(raw: dict[str, Any]) -> Config:
         development=development,
         external=external,
         airport=airport,
+        wind=wind,
         sensors=sensors,
     )
 
