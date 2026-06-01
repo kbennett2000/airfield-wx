@@ -8,8 +8,11 @@ fixture_dir), and asserts:
 - /api/v1/current reflects current upstream values.
 - Changing the upstream value is visible in /current on the next tick
   (the "I walked outside and the temp dropped" verification).
-- /api/v1/current/indoor uses the TTL cache: two concurrent requests
-  produce exactly one upstream poll.
+- /api/v1/current/<aux> uses the TTL cache: concurrent requests for a
+  non-outdoor (on-demand) station produce exactly one upstream poll.
+  (`aux` is a generic non-outdoor station exercising the retained
+  multi-station / TTL-cache machinery — ADR-0007 removed the indoor
+  and basement instances, not the mechanism.)
 
 This is the closest substitute for the user's
 "point at the actual Pi" verification that doesn't need hardware.
@@ -52,18 +55,13 @@ _STATE: dict[str, dict] = {
         "uptime": 100000,
         "freeHeap": 178000,
     },
-    "indoor": {
+    "aux": {
         "temperatureC": 22.4,
         "humidity": 38.7,
         "pressure": 805.2,
     },
-    "basement": {
-        "temperatureC": 18.1,
-        "humidity": 52.3,
-        "pressure": 807.4,
-    },
 }
-_POLL_COUNTS: dict[str, int] = {"outdoor": 0, "indoor": 0, "basement": 0}
+_POLL_COUNTS: dict[str, int] = {"outdoor": 0, "aux": 0}
 _STATE_LOCK = threading.Lock()
 
 
@@ -107,8 +105,7 @@ def integration_client(
             _POLL_COUNTS[k] = 0
 
     outdoor_srv, outdoor_port, _ = _start_fake_esp32("outdoor")
-    indoor_srv, indoor_port, _ = _start_fake_esp32("indoor")
-    basement_srv, basement_port, _ = _start_fake_esp32("basement")
+    aux_srv, aux_port, _ = _start_fake_esp32("aux")
 
     db_path = tmp_path / "weather.db"
     cfg = tmp_path / "weather.toml"
@@ -139,21 +136,12 @@ fallback_lat = 39.7392
 fallback_lon = -104.9903
 
 [[sensors]]
-id = "indoor"
-role = "indoor"
-ip = "127.0.0.1:{indoor_port}"
+id = "aux"
+role = "aux"
+ip = "127.0.0.1:{aux_port}"
 has_gps = false
 has_light = false
 online_threshold_seconds = 120
-temp_offset_c = 0.0
-
-[[sensors]]
-id = "basement"
-role = "indoor"
-ip = "127.0.0.1:{basement_port}"
-has_gps = false
-has_light = false
-online_threshold_seconds = 300
 temp_offset_c = 0.0
 """
     )
@@ -166,8 +154,7 @@ temp_offset_c = 0.0
         yield tc
 
     outdoor_srv.shutdown()
-    indoor_srv.shutdown()
-    basement_srv.shutdown()
+    aux_srv.shutdown()
 
 
 def test_real_http_logger_writes_outdoor_row(integration_client: TestClient) -> None:
@@ -201,17 +188,17 @@ def test_temperature_change_visible_in_current_within_one_interval(
     assert after["raw"]["temperature_c"] == pytest.approx(15.5)
 
 
-def test_indoor_concurrent_requests_collapse_to_one_upstream_poll(
+def test_aux_concurrent_requests_collapse_to_one_upstream_poll(
     integration_client: TestClient,
 ) -> None:
-    # Clear any indoor polls that happened during the test's first /current call.
+    # Clear any aux polls that happened during the test's first /current call.
     with _STATE_LOCK:
-        _POLL_COUNTS["indoor"] = 0
+        _POLL_COUNTS["aux"] = 0
 
     async def hit() -> int:
         loop = asyncio.get_event_loop()
         return (
-            await loop.run_in_executor(None, integration_client.get, "/api/v1/current/indoor")
+            await loop.run_in_executor(None, integration_client.get, "/api/v1/current/aux")
         ).status_code
 
     async def run() -> list[int]:
@@ -221,8 +208,8 @@ def test_indoor_concurrent_requests_collapse_to_one_upstream_poll(
     assert all(s == 200 for s in results)
     # TTL cache should dedupe the 5 near-simultaneous requests to 1 poll.
     with _STATE_LOCK:
-        assert _POLL_COUNTS["indoor"] == 1, (
-            f"expected 1 upstream poll under TTL cache, got {_POLL_COUNTS['indoor']}"
+        assert _POLL_COUNTS["aux"] == 1, (
+            f"expected 1 upstream poll under TTL cache, got {_POLL_COUNTS['aux']}"
         )
 
 

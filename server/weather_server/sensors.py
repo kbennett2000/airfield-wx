@@ -6,8 +6,8 @@ files use, the same shape the DB inserts) for a configured sensor.
 Two implementations:
 
 - FixtureSensorSource: reads JSON files from a directory; the outdoor
-  file is a list walked round-robin; indoor/basement are single
-  snapshots that may carry an `offline: true` flag. Selected when
+  file is a list walked round-robin; any non-outdoor station is a single
+  snapshot that may carry an `offline: true` flag. Selected when
   [development] fixture_dir is set in weather.toml.
 - HttpSensorSource: GET http://<sensor-ip>/data, parse with
   wire_format, return the payload (or None on any failure). Selected
@@ -45,8 +45,8 @@ class FixtureSensorSource:
     File layout:
         fixtures/
           outdoor.json   # list of payloads, walked round-robin
-          indoor.json    # single payload object (optional `offline: true`)
-          basement.json  # single payload object (optional `offline: true`)
+          <sensor-id>.json   # any non-outdoor station: single payload
+                             # object (optional `offline: true`)
     """
 
     def __init__(self, fixture_dir: Path | str) -> None:

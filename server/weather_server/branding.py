@@ -29,9 +29,7 @@ def _empty_branding() -> dict[str, Any]:
         "footer": {"text": "", "system_line": ""},
         "browser_title": {"text": "Weather Station"},
         "states": {
-            "basement_offline": "",
             "outdoor_offline": "",
-            "indoor_offline": "",
             "loading": "",
         },
         "error": {"generic": ""},

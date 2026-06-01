@@ -47,6 +47,8 @@ airstrip, surfacing the pre-flight-relevant conditions a small-aircraft pilot ca
 | 13 | **Dashboard reskinned to EFIS / instrument-panel**, vanilla JS/HTML/SVG (no framework — per base), self-hosted fonts. Color encodes provenance: local = cyan, internet-sourced = violet. Offline-first dimming (only the internet-sourced panels dim). Visual spec: `docs/design/dashboard-mockup.html`. |
 | 14 | **Nothing location-specific is hardcoded** anywhere in code. |
 | 15 | **No light sensor (TSL2591 removed).** Outdoor suite = BME280 + GPS + anemometer. Set `has_light = false`; the base then cascades `derived.sky`, THSW, hourly ET₀, UV, and DLI to absent on their own. Sky/cloud comes from METAR (ADR-0005), which is authoritative — the light-sensor estimate was redundant and less reliable for a pilot. |
+| 16 | **Flexible anemometer topology** *(post-v1)*. Wind may come from the **outdoor** unit (all-in-one, or a remote anemometer on a cable to the same ESP32 — the **default**) or from an opt-in **separate wind station** (a dedicated ESP32 + anemometer, no GPS, logged). A config `wind_source` selects it; a read-time resolver feeds the wind derivations regardless of origin. A **freshness guard** nulls wind-derived fields (incl. the runway solution) when the latest wind exceeds a configurable max age. See ADR-0006. |
+| 17 | **No indoor / basement sensors** *(post-v1)*. Removed as inherited home-weather scope with no aviation purpose; `/current` = outdoor + airport + astronomy + external. The multi-station *mechanism* is retained (ADR-0006 reuses it); only the instances go. No migration (they were never logged). See ADR-0007. |
 
 ## New components
 
@@ -73,7 +75,7 @@ airstrip, surfacing the pre-flight-relevant conditions a small-aircraft pilot ca
 ## Hardware
 
 Outdoor sensor suite: **BME280** (temp / humidity / pressure) + **GPS** + **anemometer**. No light
-sensor — the TSL2591 is removed (decision 15).
+sensor — the TSL2591 is removed (decision 15). Indoor/basement sensors are not used (decision 17).
 
 - **Primary recommendation: Davis 6410** (wind speed + direction, continuous-pot direction,
   hurricane-rated). **Budget: SparkFun Weather Meter Kit** (reed-switch + resistor-network, 8-point
@@ -81,9 +83,22 @@ sensor — the TSL2591 is removed (decision 15).
 - ESP32 wiring: interrupt-driven pulse counter for speed; ADC read for direction.
 - The vane's north-alignment is a **per-install calibration offset in config** (like the existing
   `temp_offset_c`), not a constant in code. Raw direction = vane reading; corrected (true) direction =
-  raw + offset.
+  raw + offset. The offset travels with whichever device physically holds the anemometer.
 - Siting matters: keep it clear of house / hangar roof turbulence (a building-eddy reading is the
   failure mode).
+
+**Anemometer mounting topology (decision 16 / ADR-0006).** The anemometer and the BME280 have
+conflicting siting needs (wind wants a high, clear mast; the BME280 wants shaded ventilation), so three
+arrangements are supported and the right one is site-dependent:
+
+1. **All-in-one** *(default)* — anemometer + BME280 + GPS on one ESP32.
+2. **Remote anemometer on a cable** *(default-equivalent)* — anemometer high on a mast, wires run down
+   to the **same** ESP32. Identical to the firmware; just a longer sensor lead.
+3. **Separate wind station** *(opt-in)* — a dedicated ESP32 + anemometer (no GPS) at the good wind spot,
+   reporting independently and logged like the outdoor unit. Selected via `wind_source` in config.
+
+A read-time wind resolver feeds the wind derivations from whichever source is configured; a freshness
+guard nulls wind-derived fields past a configurable max age (default ~60–120 s).
 
 ## Out of scope for v1
 
@@ -112,6 +127,28 @@ sensor — the TSL2591 is removed (decision 15).
 - `derivations/light.py` + `_build_sky_block` — left dormant (gated off by `has_light = false`); no removal needed.
 - New data dir for the bundled CSVs + WMM coefficients.
 - `tests/` — coverage for every new derivation / provider / endpoint.
+
+### Post-v1 changes (Cycles 9–10)
+
+**Cycle 9 — remove indoor/basement (ADR-0007), pure subtraction, no migration:**
+- `sketches/indoor.ino`, `sketches/basement.ino` — removed.
+- `server/fixtures/indoor.json`, `basement.json`, and indoor/basement wire samples — removed.
+- `schemas.py` — drop the indoor/basement sections from `/current`.
+- `config.py` + `weather.toml.example` — drop indoor/basement sensor entries.
+- on-demand-poll / TTL-cache path — removed **only if** it served indoor/basement alone; kept if shared
+  machinery ADR-0006 reuses.
+- `tests/` — drop/adjust indoor/basement coverage.
+
+**Cycle 10 — flexible anemometer topology (ADR-0006), additive on the simplified base:**
+- `config.py` + `weather.toml.example` — + `wind_source`, + wind-freshness max-age.
+- new read-time **wind resolver** — returns latest field wind + its age from the configured source; the
+  true-direction / runway-solution / fused-index derivations consume it.
+- `db.py` — + `wind_readings` table as an **additive v2→v3 migration** (reuses the 6b framework).
+- `wire_format.py` — + parse the separate wind station's payload.
+- `sketches/wind_station.ino` (new) — ESP32 + anemometer only, no GPS, logged.
+- freshness guard — nulls wind-derived fields past max age.
+- `tests/` — resolver source-selection, freshness nulling, the v2→v3 migration (lossless), wind-station
+  ingestion.
 
 ## Safety stance (summary)
 

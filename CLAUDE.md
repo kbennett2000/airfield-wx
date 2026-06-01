@@ -32,8 +32,8 @@ variant, **not** a fork). **It is UNOFFICIAL — never a substitute for an offic
 - **DB stores RAW sensor readings only** (`outdoor_readings`, one table, WAL). Every conversion / derived
   value is computed at **read time** in `derivations/`. Never persist a derived value.
 - Endpoints in `routes/`; response shapes composed in `responses.py`; runtime contract in `schemas.py`.
-- Concurrency: outdoor logger task; optional external-feed task (no-op when disabled); on-demand indoor
-  poll behind a TTL cache.
+- Concurrency: outdoor logger task; optional external-feed task (no-op when disabled); on-demand
+  poll of any non-outdoor station behind a TTL cache.
 - **Provenance taxonomy** tags every field: RAW / CALIBRATED / D-READING / D-LOCATION / D-TIME / META /
   EXTERNAL / D-HISTORY.
 - **Offline-first:** the server runs with no internet; the `external` block is the *only* thing that

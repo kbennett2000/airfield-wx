@@ -111,7 +111,7 @@ directory the server launches from (`server/`).
 
 ### `[logger]` / `[cache]`
 `interval_seconds` (how often the outdoor sensor is logged), `http_timeout_seconds`, and the
-indoor-poll TTL `cache.ttl_seconds`.
+on-demand-poll TTL `cache.ttl_seconds` (used by any non-outdoor station fetched at read time).
 
 ### `[development]`
 `fixture_dir` — demo mode (above). Remove the block for real polling.

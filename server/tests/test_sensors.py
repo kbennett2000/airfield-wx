@@ -12,8 +12,8 @@ def _write_fixtures(d: Path) -> None:
     (d / "outdoor.json").write_text(
         '[{"temperature_c": 1.0}, {"temperature_c": 2.0}, {"temperature_c": 3.0}]'
     )
-    (d / "indoor.json").write_text('{"temperature_c": 22.0}')
-    (d / "basement.json").write_text('{"temperature_c": 18.0, "offline": true}')
+    (d / "aux.json").write_text('{"temperature_c": 22.0}')
+    (d / "aux2.json").write_text('{"temperature_c": 18.0, "offline": true}')
 
 
 @pytest.fixture
@@ -32,20 +32,22 @@ async def test_outdoor_walks_and_loops(src: FixtureSensorSource) -> None:
     assert temps == [1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0]
 
 
-async def test_indoor_snapshot_returns_same_value(src: FixtureSensorSource) -> None:
-    indoor = SensorConfig(id="indoor", role="indoor", ip="x")
-    a = await src.poll(indoor)
-    b = await src.poll(indoor)
+async def test_snapshot_returns_same_value(src: FixtureSensorSource) -> None:
+    # A non-outdoor station is a single snapshot, returned verbatim on
+    # each poll (the generic on-demand path retained for multi-station).
+    aux = SensorConfig(id="aux", role="aux", ip="x")
+    a = await src.poll(aux)
+    b = await src.poll(aux)
     assert a == b == {"temperature_c": 22.0}
 
 
 async def test_offline_flag_returns_none(src: FixtureSensorSource) -> None:
-    basement = SensorConfig(id="basement", role="indoor", ip="x")
-    assert await src.poll(basement) is None
+    aux2 = SensorConfig(id="aux2", role="aux", ip="x")
+    assert await src.poll(aux2) is None
 
 
 async def test_missing_fixture_file_returns_none(src: FixtureSensorSource) -> None:
-    ghost = SensorConfig(id="ghost", role="indoor", ip="x")
+    ghost = SensorConfig(id="ghost", role="aux", ip="x")
     assert await src.poll(ghost) is None
 
 
@@ -111,7 +113,7 @@ async def test_http_source_returns_none_on_connection_error(
 
     monkeypatch.setattr(requests, "get", boom)
     src = HttpSensorSource()
-    payload = await src.poll(SensorConfig(id="indoor", role="indoor", ip="10.0.0.1"))
+    payload = await src.poll(SensorConfig(id="aux", role="aux", ip="10.0.0.1"))
     assert payload is None
 
 
@@ -142,7 +144,7 @@ async def test_http_source_handles_nan_response_via_adapter(
     sample = '{"temperatureC":20.0,"humidity":nan,"pressure":805.0}'
     monkeypatch.setattr(requests, "get", lambda url, timeout: _FakeResponse(sample))
     src = HttpSensorSource()
-    payload = await src.poll(SensorConfig(id="indoor", role="indoor", ip="10.0.0.1"))
+    payload = await src.poll(SensorConfig(id="outdoor", role="outdoor", ip="10.0.0.1"))
     assert payload is not None
     assert payload["temperature_c"] == pytest.approx(20.0)
     assert "humidity_pct" not in payload  # nan was dropped

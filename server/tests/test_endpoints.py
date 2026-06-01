@@ -26,9 +26,11 @@ def test_current_endpoint_returns_documented_shape(client: TestClient) -> None:
     r = client.get("/api/v1/current")
     assert r.status_code == 200
     parsed = schemas.CurrentResponse.model_validate(r.json())
-    assert "outdoor" in parsed.sensors
-    assert "indoor" in parsed.sensors
-    assert "basement" in parsed.sensors
+    # /current = outdoor + airport + astronomy + external (ADR-0007: no
+    # indoor/basement instances).
+    assert set(parsed.sensors) == {"outdoor"}
+    assert "indoor" not in parsed.sensors
+    assert "basement" not in parsed.sensors
 
     outdoor = parsed.sensors["outdoor"]
     assert outdoor.online is True
@@ -39,10 +41,9 @@ def test_current_endpoint_returns_documented_shape(client: TestClient) -> None:
     assert d.pressure_sealevel_hpa is not None
     assert d.pressure_sealevel_inhg is not None
 
-    # Location block only on outdoor.
+    # Location block on the outdoor (GPS) sensor.
     assert outdoor.location is not None
     assert outdoor.location.maidenhead is not None
-    assert parsed.sensors["indoor"].location is None
 
     # Astronomy populated.
     assert parsed.astronomy.timezone in ("America/Denver", "UTC")
@@ -56,8 +57,6 @@ def test_current_outdoor_has_sky_block(client: TestClient) -> None:
     assert sky.estimated is True
     assert sky.solar_irradiance_w_m2 is not None
     assert sky.sun_altitude_deg is not None
-    # Indoor has no light sensor → no sky block.
-    assert parsed.sensors["indoor"].derived.sky is None
 
 
 def test_current_outdoor_extended_thermo_present(client: TestClient) -> None:
@@ -73,14 +72,6 @@ def test_current_one_outdoor(client: TestClient) -> None:
     assert r.status_code == 200
     parsed = schemas.CurrentSensorResponse.model_validate(r.json())
     assert parsed.sensor.sensor_id == "outdoor"
-
-
-def test_current_one_indoor(client: TestClient) -> None:
-    r = client.get("/api/v1/current/indoor")
-    assert r.status_code == 200
-    parsed = schemas.CurrentSensorResponse.model_validate(r.json())
-    assert parsed.sensor.role == "indoor"
-    assert parsed.sensor.location is None
 
 
 def test_current_one_unknown_returns_404_with_error_envelope(client: TestClient) -> None:
@@ -111,14 +102,6 @@ def test_history_include_light_adds_lux(client: TestClient) -> None:
     if parsed.rows:
         sample = parsed.rows[0].model_dump()
         assert "lux" in sample
-
-
-def test_history_indoor_returns_404_history_not_available(client: TestClient) -> None:
-    r = client.get("/api/v1/history/indoor")
-    assert r.status_code == 404
-    body = r.json()
-    schemas.ErrorResponse.model_validate(body)
-    assert body["error"]["code"] == "history_not_available"
 
 
 def test_history_unknown_sensor_returns_404_sensor_not_found(client: TestClient) -> None:
@@ -199,12 +182,6 @@ def test_summary_empty_db_returns_null_stats(client: TestClient) -> None:
     assert parsed.light_integral_mol_m2 is None
 
 
-def test_summary_indoor_404_history_not_available(client: TestClient) -> None:
-    r = client.get("/api/v1/summary/indoor")
-    assert r.status_code == 404
-    assert r.json()["error"]["code"] == "history_not_available"
-
-
 def test_summary_unknown_404_sensor_not_found(client: TestClient) -> None:
     r = client.get("/api/v1/summary/kitchen")
     assert r.status_code == 404
@@ -217,16 +194,14 @@ def test_summary_bad_period_422(client: TestClient) -> None:
     assert r.status_code == 422
 
 
-def test_sensors_endpoint_lists_all_three(client: TestClient) -> None:
+def test_sensors_endpoint_lists_outdoor(client: TestClient) -> None:
     r = client.get("/api/v1/sensors")
     assert r.status_code == 200
     parsed = schemas.SensorListResponse.model_validate(r.json())
     ids = [s.sensor_id for s in parsed.sensors]
-    assert set(ids) == {"outdoor", "indoor", "basement"}
+    assert set(ids) == {"outdoor"}
     outdoor_entry = next(s for s in parsed.sensors if s.sensor_id == "outdoor")
     assert outdoor_entry.logged is True
-    indoor_entry = next(s for s in parsed.sensors if s.sensor_id == "indoor")
-    assert indoor_entry.logged is False
 
 
 def test_astronomy_endpoint(client: TestClient) -> None:
@@ -271,28 +246,36 @@ def test_health_endpoint(client: TestClient) -> None:
 def test_offline_sensor_returns_503_when_never_seen(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """If indoor.json marks the sensor offline AND there's no last_seen,
-    GET /api/v1/current/indoor returns 503 sensor_no_data."""
+    """Generic on-demand-poll mechanism (retained for the multi-station
+    capability): a configured non-outdoor station whose snapshot is offline
+    AND has no last_seen → GET /api/v1/current/<id> returns 503
+    sensor_no_data."""
     fixture_dir = tmp_path / "fixtures"
     fixture_dir.mkdir()
     shutil.copy(FIXTURE_SRC / "outdoor.json", fixture_dir / "outdoor.json")
-    (fixture_dir / "indoor.json").write_text('{"temperature_c": 22.0, "offline": true}')
-    (fixture_dir / "basement.json").write_text('{"temperature_c": 18.0, "offline": true}')
+    (fixture_dir / "aux.json").write_text('{"temperature_c": 22.0, "offline": true}')
 
     db_path = tmp_path / "weather.db"
     cfg = tmp_path / "weather.toml"
     from tests.conftest import BRANDING_EXAMPLE, TOML_TEMPLATE
-    cfg.write_text(TOML_TEMPLATE.format(
-        db_path=str(db_path),
-        fixture_dir=str(fixture_dir),
-        branding_path=str(BRANDING_EXAMPLE),
-    ))
+    aux_block = (
+        '\n[[sensors]]\nid = "aux"\nrole = "aux"\n'
+        'ip = "192.168.1.99"\nonline_threshold_seconds = 120\n'
+    )
+    cfg.write_text(
+        TOML_TEMPLATE.format(
+            db_path=str(db_path),
+            fixture_dir=str(fixture_dir),
+            branding_path=str(BRANDING_EXAMPLE),
+        )
+        + aux_block
+    )
     monkeypatch.setenv("WEATHER_CONFIG", str(cfg))
 
     from weather_server.main import create_app
 
     with TestClient(create_app()) as tc:
-        r = tc.get("/api/v1/current/indoor")
+        r = tc.get("/api/v1/current/aux")
         assert r.status_code == 503
         assert r.json()["error"]["code"] == "sensor_no_data"
 

@@ -328,11 +328,11 @@ def test_current_sensor_outdoor_external_null_when_disabled(client: TestClient) 
     assert parsed.external is None
 
 
-def test_current_sensor_indoor_external_key_present(client: TestClient) -> None:
-    """Indoor sensor route includes the 'external' key in the response JSON
-    (its value may be None since fused indices require outdoor_reading)."""
+def test_current_sensor_external_key_always_present(client: TestClient) -> None:
+    """The single-sensor route always serializes the 'external' key, even
+    when its value is None (the dashboard relies on the key existing)."""
     _push(client, wind_speed_ms=3.0, observed_at=datetime.now(UTC))
-    r = client.get("/api/v1/current/indoor")
+    r = client.get("/api/v1/current/outdoor")
     assert r.status_code == 200
     assert "external" in r.json()
 

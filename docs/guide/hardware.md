@@ -71,9 +71,8 @@ fixed, aviation-universal).
 
 ## Flashing
 
-The sketches are in `sketches/` (`outdoor.ino`, plus `indoor.ino` / `basement.ino` for optional indoor
-units). Flash with the Arduino IDE or `arduino-cli` (ESP32 board support + the BME280, TinyGPS,
-Adafruit SSD1306 libraries).
+The sketch is in `sketches/` (`outdoor.ino` — the single field unit). Flash with the Arduino IDE or
+`arduino-cli` (ESP32 board support + the BME280, TinyGPS, Adafruit SSD1306 libraries).
 
 Before flashing `outdoor.ino`, edit the top of the file:
 

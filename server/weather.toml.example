@@ -21,11 +21,11 @@ http_timeout_seconds = 10
 [cache]
 ttl_seconds = 5
 
-# Set [development] fixture_dir to a directory containing outdoor.json,
-# indoor.json, basement.json to read from local fixtures instead of
-# polling real ESP32s — useful for offline development. Comment out
-# (or remove) the whole [development] block to enable real HTTP polling
-# of the IPs in the [[sensors]] entries below.
+# Set [development] fixture_dir to a directory containing outdoor.json
+# (plus a <sensor-id>.json for any additional station) to read from local
+# fixtures instead of polling real ESP32s — useful for offline development.
+# Comment out (or remove) the whole [development] block to enable real HTTP
+# polling of the IPs in the [[sensors]] entries below.
 [development]
 fixture_dir = "fixtures"
 
@@ -89,21 +89,3 @@ wind_vane_offset_deg = 0.0      # align the raw vane reading to true north
 fallback_altitude_m = 1609.3   # used for sea-level adjustment if GPS has no fix
 fallback_lat = 0.0             # used by astronomy if GPS has no fix
 fallback_lon = 0.0             # used by astronomy if GPS has no fix
-
-[[sensors]]
-id = "indoor"
-role = "indoor"
-ip = "192.168.1.61"
-has_gps = false
-has_light = false
-online_threshold_seconds = 120
-temp_offset_c = 0.0
-
-[[sensors]]
-id = "basement"
-role = "indoor"
-ip = "192.168.1.63"
-has_gps = false
-has_light = false
-online_threshold_seconds = 300
-temp_offset_c = 0.0

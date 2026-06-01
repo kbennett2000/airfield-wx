@@ -1,7 +1,7 @@
 """ESP32 /data wire format → internal SensorPayload adapter.
 
-The sketches (sketches/{outdoor,indoor,basement}.ino) emit JSON-shaped
-strings by string-concatenating field names with String(<float>) values.
+The outdoor sketch (sketches/outdoor.ino) emits JSON-shaped strings by
+string-concatenating field names with String(<float>) values.
 Two notable wire-format quirks the adapter absorbs:
 
 1. **`nan` text instead of valid JSON null** (BUG-08 in the findings
@@ -52,18 +52,13 @@ def parse_outdoor(text: str) -> dict[str, Any] | None:
     return _outdoor_to_payload(raw)
 
 
-def parse_indoor(text: str) -> dict[str, Any] | None:
-    raw = _safe_load(text)
-    if raw is None or "error" in raw:
-        return None
-    return _indoor_to_payload(raw)
-
-
 def parse(text: str, role: str) -> dict[str, Any] | None:
-    """Dispatch on sensor role (`outdoor` or `indoor`)."""
-    if role == "outdoor":
-        return parse_outdoor(text)
-    return parse_indoor(text)
+    """Dispatch on sensor role. Today the only logged/polled role is
+    `outdoor`; the `role` argument is the extension seam for additional
+    station types (e.g. a separate wind station — ADR-0006/Cycle 10), which
+    will register their own parser here. Unknown roles fall back to the
+    outdoor adapter."""
+    return parse_outdoor(text)
 
 
 def _safe_load(text: str) -> dict[str, Any] | None:
@@ -108,23 +103,6 @@ def _outdoor_to_payload(raw: dict[str, Any]) -> dict[str, Any]:
     _put_float(payload, "speed_kmh", raw.get("speed"))
     _put_float(payload, "course_deg", raw.get("course"))
     _put_int(payload, "satellites", raw.get("satellites"))
-
-    _put_int(payload, "rssi_dbm", raw.get("rssi"))
-    uptime_ms = _clean_int(raw.get("uptime"))
-    if uptime_ms is not None:
-        payload["uptime_s"] = uptime_ms // 1000
-    _put_int(payload, "free_heap_bytes", raw.get("freeHeap"))
-
-    return payload
-
-
-def _indoor_to_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    payload: dict[str, Any] = {}
-    _put_float(payload, "temperature_c", raw.get("temperatureC"))
-    _put_float(payload, "humidity_pct", raw.get("humidity"))
-    pressure_hpa = _clean_float(raw.get("pressure"))
-    if pressure_hpa is not None:
-        payload["pressure_pa"] = pressure_hpa * 100.0
 
     _put_int(payload, "rssi_dbm", raw.get("rssi"))
     uptime_ms = _clean_int(raw.get("uptime"))

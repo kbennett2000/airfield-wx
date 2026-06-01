@@ -29,12 +29,10 @@ system_line = "[BRANDING — footer system line]"
 text = "[BRANDING — browser tab title]"
 
 # ── Sensor offline-state copy ──────────────────────────────────────────
-# Shown inside each sensor panel when that sensor is offline. Pick
-# friendly placeholder copy that doesn't look like stale data.
+# Shown when the outdoor sensor / feed is offline. Pick friendly
+# placeholder copy that doesn't look like stale data.
 [states]
 outdoor_offline = "[BRANDING — outdoor offline copy]"
-indoor_offline  = "[BRANDING — indoor offline copy]"
-basement_offline = "[BRANDING — basement offline copy]"
 loading = "[BRANDING — loading copy]"
 
 # ── Error copy ─────────────────────────────────────────────────────────

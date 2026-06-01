@@ -46,24 +46,6 @@ has_light = true
 online_threshold_seconds = 120
 temp_offset_c = -0.5
 fallback_altitude_m = 1609.3
-
-[[sensors]]
-id = "indoor"
-role = "indoor"
-ip = "192.168.1.61"
-has_gps = false
-has_light = false
-online_threshold_seconds = 120
-temp_offset_c = 0.0
-
-[[sensors]]
-id = "basement"
-role = "indoor"
-ip = "192.168.1.63"
-has_gps = false
-has_light = false
-online_threshold_seconds = 300
-temp_offset_c = 0.0
 """
 
 

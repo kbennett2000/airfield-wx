@@ -59,10 +59,11 @@ def test_sensor_reading_full_outdoor_shape() -> None:
     assert sr.location is not None and sr.location.maidenhead == "DM79mr"
 
 
-def test_sensor_reading_indoor_has_no_location_or_light() -> None:
+def test_sensor_reading_without_gps_has_no_location_or_light() -> None:
+    # A non-GPS station omits the location block and carries no light.
     payload = {
-        "sensor_id": "indoor",
-        "role": "indoor",
+        "sensor_id": "aux",
+        "role": "aux",
         "online": True,
         "reading_timestamp": "2026-05-22T15:30:16Z",
         "age_seconds": 12,
@@ -164,8 +165,8 @@ def test_health_response_shape() -> None:
         "db_reachable": True,
         "sensors": [
             {"sensor_id": "outdoor", "online": True, "age_seconds": 28},
-            {"sensor_id": "indoor", "online": True, "age_seconds": 12},
-            {"sensor_id": "basement", "online": False, "age_seconds": 1828},
+            {"sensor_id": "aux", "online": True, "age_seconds": 12},
+            {"sensor_id": "aux2", "online": False, "age_seconds": 1828},
         ],
         "loggers": [
             {"sensor_id": "outdoor", "last_write_seconds_ago": 28, "ok": True},

@@ -15,7 +15,7 @@ def test_load_example_config() -> None:
     assert config.development.fixture_dir == "fixtures"
     assert config.fixture_mode is True
     ids = [s.id for s in config.sensors]
-    assert ids == ["outdoor", "indoor", "basement"]
+    assert ids == ["outdoor"]
 
 
 def test_sensor_by_id_and_outdoor() -> None:
@@ -55,7 +55,7 @@ def test_rejects_duplicate_sensor_ids() -> None:
             {
                 "sensors": [
                     {"id": "x", "role": "outdoor", "ip": "1.1.1.1"},
-                    {"id": "x", "role": "indoor", "ip": "1.1.1.2"},
+                    {"id": "x", "role": "aux", "ip": "1.1.1.2"},
                 ]
             }
         )

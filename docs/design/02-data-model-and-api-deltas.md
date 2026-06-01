@@ -144,3 +144,44 @@ regulatory = false           # position-light / night-currency interpretation; o
 `SCHEMA_VERSION` 1 → 2. **The base raises on a version mismatch with no migration** — add a real
 migration path (ALTER TABLE ADD COLUMN is sufficient; columns are nullable) so existing deployments
 don't lose history. Wind is stored raw; all corrections/derivations stay at read time.
+
+## Post-v1 deltas (Cycles 9–10)
+
+### Remove indoor/basement (Cycle 9, ADR-0007)
+
+Pure subtraction. `/api/v1/current` drops its `indoor` and `basement` sections and becomes
+**outdoor + airport + astronomy + external**. The indoor/basement config blocks, sketches, and fixtures
+are removed. **No schema-version change and no migration** — indoor/basement were polled on demand and
+never logged, so there are no tables to migrate. The multi-station *mechanism* is retained for Cycle 10;
+only the instances are removed.
+
+### Flexible wind source + freshness (Cycle 10, ADR-0006)
+
+**Config: `wind_source`.** Selects where field wind is read from:
+- `"outdoor"` *(default)* — wind arrives on the outdoor payload (all-in-one or remote-cable; unchanged
+  from Cycle 6).
+- a **wind-station sensor ID** — wind comes from a dedicated, logged wind station.
+
+**Read-time wind resolver.** A small resolver returns the latest field wind **and its observation age**
+from the configured source. The wind-dependent derivations — `wind_direction_true_deg`, the runway
+solution, and the wind-fused comfort indices — consume the resolver's output and are agnostic to origin.
+This preserves the "all derivations at read time" rule and means switching topology is a config change,
+not a code path.
+
+**Freshness guard.** A `wind_max_age_s` config value (default ~60–120 s). When the latest wind is older,
+the wind-derived fields **and the runway solution** are nulled — never present stale wind as current, and
+never compute a favored runway from a dead sensor. Applies to both topologies; matters most for the
+separate station. One threshold; no broader staleness model. (Cross-device time-sync is explicitly *not*
+needed — see ADR-0006.)
+
+**DB: `wind_readings` table.** The separate wind station logs to its own table, added as an **additive
+v2 → v3 migration** reusing the Cycle 6b forward-migration framework. `SCHEMA_VERSION` 2 → 3. Existing
+`outdoor_readings` data (including outdoor-borne wind) is untouched. The migration test must prove a
+populated v2 DB upgrades to v3 with no data loss, exactly as the v1→v2 test did.
+
+**Wire format.** `wire_format.py` learns to parse the wind station's payload (wind speed/gust/direction,
+same raw fields as outdoor wind). The wind station's sketch (`wind_station.ino`) emits anemometer reads
+only — no BME280, no GPS.
+
+**Vane offset.** Travels with the device holding the anemometer — on the outdoor sensor's calibration in
+topologies 1/2, on the wind station's in topology 3.

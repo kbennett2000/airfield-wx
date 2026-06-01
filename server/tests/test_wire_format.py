@@ -68,24 +68,14 @@ def test_parse_outdoor_error_envelope_returns_none() -> None:
     assert wire_format.parse_outdoor(_read("outdoor_error.json")) is None
 
 
-def test_parse_indoor_happy_sample() -> None:
-    payload = wire_format.parse_indoor(_read("indoor_happy.json"))
-    assert payload is not None
-    assert payload["temperature_c"] == pytest.approx(22.41)
-    assert payload["pressure_pa"] == pytest.approx(80520.0)
-    # Indoor wire format has no GPS or device telemetry fields.
-    assert "latitude" not in payload
-
-
-def test_parse_indoor_error_envelope() -> None:
-    assert wire_format.parse_indoor('{"error":"sensor failure"}') is None
-
-
-def test_parse_dispatch_by_role() -> None:
+def test_parse_dispatch_falls_back_to_outdoor() -> None:
+    # parse() dispatches on role. Today the only logged/polled role is
+    # `outdoor`; unknown roles fall back to the outdoor adapter (the
+    # extension seam for Cycle 10's wind station — ADR-0006).
     out = wire_format.parse(_read("outdoor_happy.json"), "outdoor")
-    in_ = wire_format.parse(_read("indoor_happy.json"), "indoor")
+    aux = wire_format.parse(_read("outdoor_happy.json"), "aux")
     assert out is not None and "altitude_m" in out
-    assert in_ is not None and "altitude_m" not in in_
+    assert aux == out
 
 
 def test_parse_malformed_json_returns_none() -> None:

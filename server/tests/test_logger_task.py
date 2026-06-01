@@ -16,7 +16,7 @@ def _config(fixture_dir: str) -> object:
             "development": {"fixture_dir": fixture_dir},
             "sensors": [
                 {"id": "outdoor", "role": "outdoor", "ip": "x"},
-                {"id": "indoor", "role": "indoor", "ip": "y"},
+                {"id": "aux", "role": "aux", "ip": "y"},
             ],
         }
     )
