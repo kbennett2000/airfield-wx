@@ -32,7 +32,7 @@ PORT   ?= 8005
 # the server venv doesn't expose.
 SYSPY := /usr/bin/python3
 
-.PHONY: help install dev serve test test-integration test-all lint typecheck check widget data-refresh clean distclean
+.PHONY: help install config dev serve test test-integration test-all lint typecheck check widget data-refresh clean distclean
 
 OURAIRPORTS_DIR := server/weather_server/data/ourairports
 OURAIRPORTS_URL := https://davidmegginson.github.io/ourairports-data
@@ -45,10 +45,16 @@ install: ## Create the server venv and install in editable mode with dev extras
 	$(VPY) -m pip install --upgrade pip
 	$(VPY) -m pip install -e "./server[dev]"
 
-dev: ## uvicorn --reload (port 8005, listens on all interfaces)
+config: ## Seed server/weather.toml from the example if it doesn't exist yet
+	@if [ ! -f server/weather.toml ]; then \
+		cp server/weather.toml.example server/weather.toml; \
+		echo "seeded server/weather.toml from weather.toml.example (fixture/demo mode)"; \
+	fi
+
+dev: config ## uvicorn --reload (port 8005, listens on all interfaces)
 	cd server && ../$(VENV)/bin/uvicorn weather_server.main:app --reload --host $(HOST) --port $(PORT)
 
-serve: ## uvicorn without --reload
+serve: config ## uvicorn without --reload
 	cd server && ../$(VENV)/bin/uvicorn weather_server.main:app --host $(HOST) --port $(PORT)
 
 test: ## fast unit suite (integration tests deselected via addopts)

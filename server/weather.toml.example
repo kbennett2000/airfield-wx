@@ -1,5 +1,11 @@
 # airfield-wx — server config
-# Copy to weather.toml and edit for your deployment.
+#
+# Copy this to server/weather.toml and edit for your deployment:
+#     cp server/weather.toml.example server/weather.toml
+# (`./install.sh` and `make dev`/`make serve` also auto-seed it if it's
+# missing.) This file ships in FIXTURE / DEMO MODE — see [development] below —
+# so the dashboard shows sample data with no hardware on first run. Comment out
+# the [development] block to poll real ESP32 sensors at the [[sensors]] IPs.
 
 [server]
 host = "0.0.0.0"
@@ -38,6 +44,7 @@ fixture_dir = "fixtures"
 #                    category, and the station altimeter (cross-checks our
 #                    altimeter setting). Auto-finds the nearest reporting
 #                    station, or set station_id to pin an ICAO id (e.g. "KSEA").
+#                    Recommended for the aviation dashboard's METAR panel.
 #
 # fetch: which fields to request (open-meteo supports all of these).
 # cross_check: compare the model vs the nearest NWS station and flag
@@ -58,7 +65,7 @@ cross_check = false
 # airport is resolved from the bundled OurAirports data using the outdoor GPS.
 [airport]
 # ident = "____"               # override the auto-detected field by ICAO/local ident
-crosswind_limit_kt = 15        # parsed now; used by the runway calculator (Cycle 4)
+crosswind_limit_kt = 15        # flags a runway end whose crosswind exceeds this
 # field_elevation_ft = 0       # manual override (else: published value, then GPS)
 #
 # Manual runway entry for a strip not in OurAirports. Headings are MAGNETIC
@@ -74,7 +81,7 @@ id = "outdoor"
 role = "outdoor"
 ip = "192.168.1.60"
 has_gps = true
-has_light = false              # TSL2591 retired (decision 15); sky/UV come from METAR
+has_light = false              # no light sensor; sky/UV come from METAR instead
 has_wind = true                # set false if there's no anemometer
 online_threshold_seconds = 120
 temp_offset_c = -0.5
