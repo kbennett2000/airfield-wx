@@ -5,6 +5,25 @@ setting.
 
 > **UNOFFICIAL — NOT FOR FLIGHT PLANNING.** See the [README](../../README.md).
 
+## New to this? Start here
+
+If you've never run a server, don't worry — you can do this. Here's the lay of the land before any
+commands:
+
+- **The terminal** is a text window where you type commands instead of clicking. On a Mac it's
+  *Terminal*; on Windows it's *PowerShell* or the *Ubuntu* app; on a Raspberry Pi it's right there on the
+  desktop (or you reach it over the network with [SSH](glossary.md#computing-terms)). Every command below
+  is meant to be **copied and pasted** — you don't have to memorize anything.
+- **You can try it with no hardware at all.** The five-minute demo below runs the whole dashboard on
+  sample data, so you can see exactly what you'd get *before* buying a single part. That's the
+  recommended first step.
+- **"The server is running" looks like** a line such as `Application startup complete` (or
+  `Uvicorn running on http://0.0.0.0:8005`) that then just sits there — that's normal, it's waiting to
+  serve the dashboard. You leave it running and open the dashboard in your browser. Press `Ctrl-C` in the
+  terminal to stop it.
+- **Unfamiliar word?** The [glossary](glossary.md) explains every aviation and computing term in plain
+  language.
+
 ## Requirements
 
 - A Linux host on your LAN — a **Raspberry Pi Zero 2 W** is plenty, as is any Ubuntu/Debian box.

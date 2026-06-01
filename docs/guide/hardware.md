@@ -82,12 +82,28 @@ can't all live in one spot — so airfield-wx supports three arrangements. The f
 | 2 | **Remote anemometer on a cable** *(default-equivalent)* | one ESP32; anemometer high on a mast, wires run down to it | outdoor payload |
 | 3 | **Separate wind station** *(opt-in)* | a **second** ESP32 + anemometer (no BME280, no GPS) at the good wind spot | the wind station |
 
-- **Topologies 1 & 2 are firmware-identical** — flash `outdoor.ino`; topology 2 is just a longer sensor
-  lead. `[wind] source = "outdoor"` (the default).
-- **Topology 3** adds a dedicated wind station running `wind_station.ino`. Location intelligence stays
-  anchored to the **outdoor** unit's GPS (one field, one position); the wind station reports anemometer
-  data only. Select it with `[wind] source = "<wind-station-id>"` (see the
-  [install guide](install.md#wind-flexible-anemometer-topology)).
+**Which one is right for you?**
+
+- **Start with #1 (all-in-one)** if you have a single good spot — a post or pole, reasonably clear of
+  the hangar/house — where you can put everything together. This is most people. One device, one set of
+  wires.
+- **Choose #2 (remote anemometer)** if your *thermometer* spot is fine but the wind there is dirty
+  (turbulence off a roof or trees). Mount just the wind cups/vane up high on a mast and run their cable
+  back down to the same ESP32. From the software's point of view it's identical to #1 — there's nothing
+  extra to configure.
+- **Choose #3 (separate wind station)** only if good wind and good thermometer spots are genuinely far
+  apart — e.g. the wind mast belongs at the edge of the strip but the temperature/GPS box lives by the
+  hangar. You build a small *second* ESP32 with just an anemometer. It's more work and a second power
+  feed, so don't reach for it unless #1/#2 can't give you clean wind.
+
+The first two are firmware-identical — flash `outdoor.ino` and leave `[wind] source = "outdoor"` (the
+default). Topology 3 adds a dedicated wind station running `wind_station.ino`; location intelligence
+stays anchored to the **outdoor** unit's GPS (one field, one position), and you select it with
+`[wind] source = "<wind-station-id>"` (see the [install guide](install.md#wind--flexible-anemometer-topology)).
+
+Whichever you pick, the wind becomes a live runway solution on the dashboard:
+
+![The wind & runway panel — wind 340° at 12 kt, favored runway 34C, headwind and crosswind components, and the magnetic variation used](../assets/screenshots/runway-compass.png)
 
 **Which vane offset applies where.** The `wind_vane_offset_deg` calibration (below) travels with the
 device that **physically holds the anemometer** — the outdoor unit in topologies 1/2, the wind station

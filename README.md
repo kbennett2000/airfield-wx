@@ -26,7 +26,8 @@ live picture of the air over your field:
 
 You don't need to be a programmer. There's a **demo you can try in five minutes** (below) before you buy
 a single part. New to the terminal or to any of the aviation terms? The
-[install guide](docs/guide/install.md) walks you through it gently.
+[install guide](docs/guide/install.md) walks you through it gently, and the
+[glossary](docs/guide/glossary.md) explains every term in plain language.
 
 ## What it looks like
 
@@ -102,6 +103,7 @@ reads as current. Details and the trade-offs are in the [hardware guide](docs/gu
   systemd service, and every `weather.toml` setting.
 - **[Dashboard tour](docs/guide/dashboard.md)** — how to read the instrument, panel by panel.
 - **[Verification checklist](docs/guide/verification.md)** — how to know it's working, end to end.
+- **[Glossary](docs/guide/glossary.md)** — every aviation and computing term, in plain language.
 - **[Future work](docs/future-work.md)** — what's deliberately deferred, and why.
 - **[Design docs](docs/design/)** and **[architecture decisions](docs/adr/)** — the *why* behind the
   build (offline-first, local-first wind, the unofficial stance).

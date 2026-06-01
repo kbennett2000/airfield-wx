@@ -7,6 +7,13 @@ How to read your instrument. Open `http://<server>:8005/dashboard/`.
 > substitute for an official preflight briefing or current METAR/TAF, and there is **no go/no-go
 > automation**. See the [README](../../README.md).
 
+![The airfield-wx dashboard, online and populated](../assets/screenshots/dashboard-online.png)
+
+The layout reads top-left to bottom-right: the big **density-altitude** number leads, then **wind &
+runway**, **altimeter**, **temperature/moisture**, the **METAR** panel, a **day/night** arc, and a
+**trend** chart along the bottom. The amber **UNOFFICIAL** strip sits under the header and never leaves.
+New to any term below? The [glossary](glossary.md) has plain-language definitions.
+
 ## The one thing to learn first: the provenance colors
 
 Every readout is color-coded by **where the number comes from**:
@@ -25,6 +32,12 @@ That asymmetry is deliberate: your field's own density altitude, altimeter, and 
 network. (See [ADR-0002](../adr/0002-internet-optional-dashboard-ux.md) /
 [ADR-0005](../adr/0005-metar-data-and-unofficial-stance.md).) The top-right **Net Feed** indicator
 shows ONLINE / STALE / OFFLINE; the UNOFFICIAL banner is present regardless.
+
+![The same dashboard with the feed off — only the violet METAR panel dims; every cyan local panel stays bright](../assets/screenshots/dashboard-offline.png)
+
+*Feed off: the METAR panel (top-right) fades to "NO FEED," but density altitude, wind, the runway
+solution, and the altimeter — everything measured at your field — stay fully lit. This is the same
+dashboard a second later, with the internet pulled.*
 
 ## The panels
 

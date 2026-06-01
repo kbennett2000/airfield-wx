@@ -1,7 +1,9 @@
 # Verification Checklist
 
-End-to-end "did my deployment work?" — from server bring-up to the dashboard's offline-first behavior.
-Run it once after install and after any config change.
+Here's how you know it's working — a friendly walk from "the server came up" to "the dashboard behaves
+the way it should." Nothing here is a test you can fail; it's a tour of what *good* looks like, so you
+can spot anything that isn't. Run through it once after install, and again after any config change. New
+to a term? The [glossary](glossary.md) has you covered.
 
 > **UNOFFICIAL — NOT FOR FLIGHT PLANNING.** See the [README](../../README.md).
 
