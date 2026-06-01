@@ -500,37 +500,6 @@ def test_build_sky_block_is_none_when_lux_absent() -> None:
     assert parsed.sensors["outdoor"].derived.sky is None
 
 
-# ── fused: ET0 and THSW absent when solar is None ────────────────────────────
-
-
-def test_fused_et0_and_thsw_absent_when_solar_none() -> None:
-    """_fused_indices: when the outdoor sky block is None (no lux) the THSW
-    and ET0 fields must be None, while Beaufort and wind chill are still
-    present (wind is the only requirement for those)."""
-    with tempfile.TemporaryDirectory() as td:
-        create_app = _app_with_no_lux_fixture(Path(td))
-        try:
-            with TestClient(create_app()) as tc:
-                obs = Observation(
-                    provider="open-meteo",
-                    source="open-meteo:best_match",
-                    wind_speed_ms=6.0,
-                    wind_direction_deg=270.0,
-                    observed_at=datetime.now(UTC),
-                )
-                tc.app.state.external_store.set(obs, datetime.now(UTC))
-                r = tc.get("/api/v1/current")
-        finally:
-            os.environ.pop("WEATHER_CONFIG", None)
-
-    assert r.status_code == 200
-    parsed = schemas.CurrentResponse.model_validate(r.json())
-    ext = parsed.external
-    assert ext is not None
-    # Wind present ⇒ Beaufort and wind chill must be computed.
-    assert ext.beaufort_force is not None
-    assert ext.wind_chill_c is not None
-    assert ext.apparent_temperature_c is not None
-    # Solar absent ⇒ THSW and ET0 must be None/absent.
-    assert ext.thsw_index_c is None
-    assert ext.et0_mm_hour is None
+# Note: THSW/ET0-null-without-solar coverage moved to test_wind_path.py in
+# Cycle 6c, when the fused comfort indices migrated from external to derived
+# (computed from LOCAL wind).

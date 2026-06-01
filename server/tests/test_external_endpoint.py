@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 
 from weather_server import schemas
@@ -90,30 +91,28 @@ def test_external_stale_flag_for_old_observation(client: TestClient) -> None:
     assert parsed.external.stale is True
 
 
-def test_fused_indices_present_with_wind_and_outdoor(client: TestClient) -> None:
-    # Wind present + outdoor reading (temp/humidity/lux from fixture) ⇒ fused.
-    _push(client, wind_speed_ms=6.0, wind_direction_deg=270.0, observed_at=datetime.now(UTC))
+def test_external_carries_genuine_model_observation(client: TestClient) -> None:
+    # The fused comfort indices moved to the derived block (Cycle 6c); the
+    # external block keeps the genuine provider observation it actually fetched.
+    _push(
+        client,
+        wind_speed_ms=6.0,
+        wind_direction_deg=270.0,
+        cloud_cover_pct=50.0,
+        observed_at=datetime.now(UTC),
+    )
     parsed = schemas.CurrentResponse.model_validate(client.get("/api/v1/current").json())
     ext = parsed.external
     assert ext is not None
-    assert ext.beaufort_force is not None
-    assert ext.beaufort_description is not None
-    assert ext.apparent_temperature_c is not None
-    assert ext.wind_chill_c is not None
-    # Fixture lux is positive ⇒ solar estimate ⇒ THSW and ET0 computed.
-    assert ext.thsw_index_c is not None
-    assert ext.et0_mm_hour is not None
-
-
-def test_fused_indices_absent_without_wind(client: TestClient) -> None:
-    _push(client, cloud_cover_pct=50.0, observed_at=datetime.now(UTC))  # no wind
-    parsed = schemas.CurrentResponse.model_validate(client.get("/api/v1/current").json())
-    ext = parsed.external
-    assert ext is not None
+    assert ext.wind_speed_ms == pytest.approx(6.0)
+    assert ext.wind_direction_cardinal == "W"
     assert ext.cloud_cover_pct == 50.0
-    assert ext.beaufort_force is None
-    assert ext.apparent_temperature_c is None
-    assert ext.wind_chill_c is None
+    # Fused comfort indices are no longer fields on the external block.
+    assert not hasattr(ext, "beaufort_force")
+    assert not hasattr(ext, "wind_chill_c")
+    assert not hasattr(ext, "apparent_temperature_c")
+    assert not hasattr(ext, "thsw_index_c")
+    assert not hasattr(ext, "et0_mm_hour")
 
 
 def test_openapi_includes_external_path(client: TestClient) -> None:

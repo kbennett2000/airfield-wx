@@ -61,3 +61,42 @@ def test_et0_night_near_zero() -> None:
 
 def test_et0_invalid_humidity_none() -> None:
     assert f.et0_hourly_mm(25.0, 150.0, 2.0, 600.0, 101325) is None
+
+
+# ── fused_indices aggregator (local wind → derived block) ─────────────────────
+
+
+def test_fused_indices_cold_windy() -> None:
+    out = f.fused_indices(-5.0, 50.0, 101325, 10.0, None)
+    assert out["beaufort_force"] == f.beaufort(10.0)[0]
+    assert out["wind_chill_c"] == pytest.approx(-13.7, abs=0.2)
+    assert out["wind_chill_c"] < -5.0
+    assert out["wind_chill_f"] == pytest.approx(f.c_to_f(out["wind_chill_c"]))
+    assert "apparent_temperature_c" in out
+    # No solar → THSW / ET0 absent.
+    assert "thsw_index_c" not in out
+    assert "et0_mm_hour" not in out
+
+
+def test_fused_indices_with_solar_includes_thsw_et0() -> None:
+    out = f.fused_indices(25.0, 50.0, 101325, 2.0, 600.0)
+    assert out["thsw_index_c"] is not None
+    assert out["thsw_index_f"] == pytest.approx(f.c_to_f(out["thsw_index_c"]))
+    assert out["et0_mm_hour"] is not None and out["et0_mm_hour"] > 0.0
+
+
+def test_fused_indices_no_wind_is_empty() -> None:
+    assert f.fused_indices(20.0, 50.0, 101325, None, 600.0) == {}
+
+
+def test_fused_indices_wind_only_gives_beaufort_only() -> None:
+    out = f.fused_indices(None, None, None, 6.0, None)
+    assert out["beaufort_force"] == 4  # 5.5 ≤ 6.0 < 8.0
+    assert "wind_chill_c" not in out
+    assert "apparent_temperature_c" not in out
+
+
+def test_fused_indices_no_pressure_skips_et0_keeps_thsw() -> None:
+    out = f.fused_indices(25.0, 50.0, None, 2.0, 600.0)
+    assert out["thsw_index_c"] is not None
+    assert "et0_mm_hour" not in out

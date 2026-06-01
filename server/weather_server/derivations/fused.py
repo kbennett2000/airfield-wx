@@ -10,6 +10,7 @@ is explicitly an estimate.
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from .readings import c_to_f, f_to_c
 
@@ -99,3 +100,49 @@ def et0_hourly_mm(
     num = 0.408 * delta * (rn - g) + gamma * (cn / (t + 273.0)) * u2 * (es - ea)
     den = delta + gamma * (1.0 + cd * u2)
     return max(0.0, num / den)
+
+
+def fused_indices(
+    temp_c: float | None,
+    humidity_pct: float | None,
+    pressure_pa: float | None,
+    wind_speed_ms: float | None,
+    solar_w_m2: float | None,
+) -> dict[str, Any]:
+    """Wind-fused comfort indices (D-READING) from LOCAL wind + local thermo.
+
+    Returns {} when there's no local wind. Beaufort needs only wind; wind chill
+    and apparent temperature additionally need temperature (+humidity); THSW and
+    hourly ET₀ additionally need solar irradiance, so without a light sensor
+    (solar None) they stay absent (cascade to null). Each primitive keeps its own
+    validity gating (e.g. the NWS wind-chill envelope returns air temp outside
+    its range). Values are unrounded, like the other derived fields.
+    """
+    if wind_speed_ms is None:
+        return {}
+
+    out: dict[str, Any] = {}
+    force, description = beaufort(wind_speed_ms)
+    out["beaufort_force"] = force
+    out["beaufort_description"] = description
+
+    if temp_c is None or humidity_pct is None:
+        return out
+
+    wc = wind_chill_c(temp_c, wind_speed_ms)
+    out["wind_chill_c"] = wc
+    out["wind_chill_f"] = c_to_f(wc)
+
+    at = apparent_temperature_c(temp_c, humidity_pct, wind_speed_ms)
+    out["apparent_temperature_c"] = at
+    out["apparent_temperature_f"] = c_to_f(at)
+
+    if solar_w_m2 is not None:
+        thsw = thsw_index_c(temp_c, humidity_pct, wind_speed_ms, solar_w_m2)
+        out["thsw_index_c"] = thsw
+        out["thsw_index_f"] = c_to_f(thsw)
+        if pressure_pa is not None:
+            out["et0_mm_hour"] = et0_hourly_mm(
+                temp_c, humidity_pct, wind_speed_ms, solar_w_m2, pressure_pa
+            )
+    return out

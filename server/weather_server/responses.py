@@ -96,6 +96,20 @@ def _build_reading(
     device_block = _build_device_block(payload)
     sky_block = _build_sky_block(sensor, payload, reading_ts)
 
+    # Wind-fused comfort indices (D-READING) from LOCAL wind. Wind speed is
+    # already has_wind-gated by map_raw; solar comes from the (dormant unless a
+    # light sensor is present) sky block, so THSW/ET0 are null without light.
+    solar = sky_block.solar_irradiance_w_m2 if sky_block is not None else None
+    derived.update(
+        fused.fused_indices(
+            derived.get("temperature_c"),
+            payload.get("humidity_pct"),
+            payload.get("pressure_pa"),
+            raw_block.get("wind_speed_ms"),
+            solar,
+        )
+    )
+
     return SensorReading(
         sensor_id=sensor.id,
         role=sensor.role,
@@ -378,7 +392,6 @@ def build_external(
     ws = obs.wind_speed_ms
     wg = obs.wind_gust_ms
     vis = obs.visibility_m
-    fused = _fused_indices(ws, obs.wind_direction_deg, outdoor_reading)
     aviation = _aviation_fields(obs, outdoor_reading)
 
     return ExternalBlock(
@@ -405,53 +418,8 @@ def build_external(
         precip_mm=_round(obs.precip_mm, 2),
         visibility_m=_round(vis, 0),
         visibility_km=_round(None if vis is None else vis / 1000.0, 1),
-        **fused,
         **aviation,
     )
-
-
-def _fused_indices(
-    wind_speed_ms: float | None,
-    wind_direction_deg: float | None,  # noqa: ARG001 - kept for symmetry/future use
-    outdoor_reading: SensorReading | None,
-) -> dict[str, Any]:
-    """Indices that need external wind + the local outdoor reading. Empty when
-    wind or the required local inputs are missing."""
-    if wind_speed_ms is None:
-        return {}
-
-    out: dict[str, Any] = {}
-    force, description = fused.beaufort(wind_speed_ms)
-    out["beaufort_force"] = force
-    out["beaufort_description"] = description
-
-    if outdoor_reading is None:
-        return out
-    temp_c = outdoor_reading.derived.temperature_c
-    humidity = outdoor_reading.raw.humidity_pct
-    pressure_pa = outdoor_reading.raw.pressure_pa
-    if temp_c is None or humidity is None:
-        return out
-
-    wc = fused.wind_chill_c(temp_c, wind_speed_ms)
-    out["wind_chill_c"] = _round(wc)
-    out["wind_chill_f"] = _round(rd.c_to_f(wc))
-
-    at = fused.apparent_temperature_c(temp_c, humidity, wind_speed_ms)
-    out["apparent_temperature_c"] = _round(at)
-    out["apparent_temperature_f"] = _round(rd.c_to_f(at))
-
-    sky = outdoor_reading.derived.sky
-    solar = sky.solar_irradiance_w_m2 if sky else None
-    if solar is not None:
-        thsw = fused.thsw_index_c(temp_c, humidity, wind_speed_ms, solar)
-        out["thsw_index_c"] = _round(thsw)
-        out["thsw_index_f"] = _round(rd.c_to_f(thsw))
-        if pressure_pa is not None:
-            out["et0_mm_hour"] = _round(
-                fused.et0_hourly_mm(temp_c, humidity, wind_speed_ms, solar, pressure_pa), 3
-            )
-    return out
 
 
 def _aviation_fields(

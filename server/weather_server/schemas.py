@@ -85,6 +85,19 @@ class DerivedReading(_StrictModel):
     # normalized to [0,360). Null when there's no local wind / has_wind is false.
     wind_direction_true_deg: float | None = None
 
+    # Wind-fused comfort indices (D-READING) — computed from LOCAL wind + local
+    # thermo; null without an anemometer. THSW and hourly ET₀ also need solar
+    # irradiance, so they are null without a light sensor (decision 15).
+    wind_chill_c: float | None = None
+    wind_chill_f: float | None = None
+    apparent_temperature_c: float | None = None
+    apparent_temperature_f: float | None = None
+    beaufort_force: int | None = None
+    beaufort_description: str | None = None
+    thsw_index_c: float | None = None
+    thsw_index_f: float | None = None
+    et0_mm_hour: float | None = None
+
     # Extended thermodynamics (D-READING) — local, always available.
     wet_bulb_c: float | None = None
     wet_bulb_f: float | None = None
@@ -255,17 +268,6 @@ class ExternalBlock(_StrictModel):
     precip_mm: float | None = None
     visibility_m: float | None = None
     visibility_km: float | None = None
-
-    # fused indices — local sensors + external wind (null without wind)
-    wind_chill_c: float | None = None
-    wind_chill_f: float | None = None
-    apparent_temperature_c: float | None = None
-    apparent_temperature_f: float | None = None
-    beaufort_force: int | None = None
-    beaufort_description: str | None = None
-    thsw_index_c: float | None = None
-    thsw_index_f: float | None = None
-    et0_mm_hour: float | None = None
 
     # aviation (METAR provider only) — ceiling/visibility/flight category are
     # the authoritative source for these; flight_category comes ONLY from the

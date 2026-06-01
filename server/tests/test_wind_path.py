@@ -96,6 +96,18 @@ def test_wind_lights_up_runway_solution(tmp_path: Path, monkeypatch) -> None:  #
     # Vane-corrected true direction derived (offset 0 → equals raw).
     assert outdoor["derived"]["wind_direction_true_deg"] is not None
 
+    # Wind-fused comfort indices now live in derived, computed from LOCAL wind.
+    derived = outdoor["derived"]
+    assert derived["beaufort_force"] is not None
+    assert derived["beaufort_description"] is not None
+    assert derived["wind_chill_c"] is not None
+    assert derived["apparent_temperature_c"] is not None
+    # No light sensor (has_light defaults false; no lux) → no solar → THSW/ET0
+    # and the whole sky block cascade to null.
+    assert derived["thsw_index_c"] is None
+    assert derived["et0_mm_hour"] is None
+    assert derived["sky"] is None
+
     # The payoff: runway_solution computed from LOCAL wind.
     airport = body["airport"]
     assert airport is not None
@@ -131,4 +143,8 @@ def test_has_wind_false_suppresses_wind(tmp_path: Path, monkeypatch) -> None:  #
     assert outdoor["raw"]["wind_speed_ms"] is None
     assert outdoor["derived"]["wind_direction_true_deg"] is None
     assert outdoor["calibration"]["wind_vane_offset_deg"] is None
+    # No local wind → no derived comfort indices.
+    assert outdoor["derived"]["beaufort_force"] is None
+    assert outdoor["derived"]["wind_chill_c"] is None
+    assert outdoor["derived"]["apparent_temperature_c"] is None
     assert body["airport"]["runway_solution"] is None
