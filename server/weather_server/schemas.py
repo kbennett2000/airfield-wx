@@ -71,6 +71,10 @@ class DerivedReading(_StrictModel):
     pressure_station_inhg: float | None = None
     pressure_sealevel_hpa: float | None = None
     pressure_sealevel_inhg: float | None = None
+    # Altimeter setting (QNH): ISA reduction to field elevation,
+    # temperature-INDEPENDENT — distinct from pressure_sealevel_* above.
+    altimeter_setting_hpa: float | None = None
+    altimeter_setting_inhg: float | None = None
 
     # Extended thermodynamics (D-READING) — local, always available.
     wet_bulb_c: float | None = None

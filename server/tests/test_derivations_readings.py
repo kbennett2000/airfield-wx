@@ -117,6 +117,86 @@ def test_pressure_sealevel_none_when_no_altitude_anywhere() -> None:
     assert derived["pressure_station_hpa"] is not None
 
 
+def test_altimeter_setting_sea_level_identity() -> None:
+    # At ISA sea level the altimeter setting equals station pressure minus the
+    # standard 0.3 hPa offset term: 1013.25 hPa @ 0 m -> ~1012.95 hPa / ~29.91 inHg.
+    a_hpa = readings.altimeter_setting_hpa(1013.25, 0.0)
+    assert a_hpa is not None and a_hpa == pytest.approx(1012.95, abs=0.05)
+    assert readings.pressure_hpa_to_inhg(a_hpa) == pytest.approx(29.91, abs=0.02)
+
+
+def test_altimeter_setting_high_elevation_reference() -> None:
+    # 800.0 hPa @ 2000 m -> ~1019.0 hPa / ~30.09 inHg (matches an online
+    # altimeter-setting calculator / high-elevation METAR within tolerance).
+    derived = readings.derive_reading(
+        {"pressure_pa": 80000, "altitude_m": 2000.0},
+    )
+    assert derived["altimeter_setting_hpa"] == pytest.approx(1019.0, abs=0.5)
+    assert derived["altimeter_setting_inhg"] == pytest.approx(30.09, abs=0.02)
+
+
+def test_altimeter_setting_monotonic_in_elevation() -> None:
+    # For a fixed station pressure, altimeter setting rises with elevation and
+    # exceeds station pressure once elevation overcomes the -0.3 hPa offset.
+    p = 900.0
+    a0 = readings.altimeter_setting_hpa(p, 0.0)
+    a500 = readings.altimeter_setting_hpa(p, 500.0)
+    a1000 = readings.altimeter_setting_hpa(p, 1000.0)
+    a2000 = readings.altimeter_setting_hpa(p, 2000.0)
+    assert None not in (a0, a500, a1000, a2000)
+    # At h=0 the -0.3 term puts it just below station pressure.
+    assert a0 == pytest.approx(p - 0.3, abs=0.01)
+    # Strictly increasing with elevation.
+    assert a0 < a500 < a1000 < a2000
+    # Exceeds station pressure for any meaningful positive elevation.
+    assert a500 > p and a1000 > p and a2000 > p
+
+
+def test_altimeter_setting_null_when_no_elevation() -> None:
+    derived = readings.derive_reading({"pressure_pa": 80520})
+    assert derived["altimeter_setting_hpa"] is None
+    assert derived["altimeter_setting_inhg"] is None
+    # Station pressure is still derived (it needs no elevation).
+    assert derived["pressure_station_hpa"] is not None
+
+
+def test_altimeter_setting_present_without_temperature() -> None:
+    # Altimeter setting is temperature-INDEPENDENT: it computes from pressure +
+    # elevation even when temperature (and thus pressure_sealevel_*) is missing.
+    derived = readings.derive_reading({"pressure_pa": 80000, "altitude_m": 2000.0})
+    assert derived["altimeter_setting_hpa"] is not None
+    assert derived["altimeter_setting_inhg"] is not None
+    assert derived["pressure_sealevel_hpa"] is None
+
+
+def test_altimeter_setting_falls_back_to_configured_altitude() -> None:
+    derived = readings.derive_reading(
+        {"pressure_pa": 80520},
+        fallback_altitude_m=1609.3,
+    )
+    assert derived["altimeter_setting_hpa"] is not None
+    assert derived["altimeter_setting_inhg"] is not None
+
+
+def test_altimeter_consistency_with_pressure_altitude() -> None:
+    # Provenance sanity: pressure altitude and QNH agree in sign/magnitude via
+    # the rough rule PA_ft ~= field_elev_ft + (29.92 - altimeter_inHg) * 1000.
+    field_elev_m = 1609.3
+    # temp + humidity present so pressure_altitude_ft (extended thermo) is computed;
+    # the altimeter setting itself is temperature-independent.
+    derived = readings.derive_reading(
+        {
+            "temperature_c": 18.4,
+            "humidity_pct": 42.0,
+            "pressure_pa": 84725,
+            "altitude_m": field_elev_m,
+        },
+    )
+    field_elev_ft = field_elev_m * readings.FT_PER_M
+    expected_pa_ft = field_elev_ft + (29.92 - derived["altimeter_setting_inhg"]) * 1000.0
+    assert derived["pressure_altitude_ft"] == pytest.approx(expected_pa_ft, abs=200.0)
+
+
 def test_calibration_offset_propagates_to_derived_temp() -> None:
     derived = readings.derive_reading(
         {"temperature_c": 20.0, "humidity_pct": 50.0},

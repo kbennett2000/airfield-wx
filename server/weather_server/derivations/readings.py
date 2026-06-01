@@ -126,12 +126,42 @@ def pressure_station_to_sealevel_hpa(
     return station_hpa * math.exp((G_M_S2 * altitude_m) / (R_SPECIFIC_DRY_AIR * t_kelvin))
 
 
+def altimeter_setting_hpa(station_hpa: float, altitude_m: float) -> float | None:
+    """ASOS/NWS altimeter setting (QNH): station pressure reduced to field
+    elevation under the ISA standard atmosphere — the value a pilot dials into
+    the Kollsman window.
+
+    Temperature-INDEPENDENT, and therefore distinct from
+    pressure_station_to_sealevel_hpa() (true sea-level pressure, which is
+    temperature-dependent). Both are kept and disambiguated by field name.
+
+    Pure; returns None for non-physical station pressure rather than raising.
+    """
+    base = station_hpa - ALTIMETER_OFFSET_HPA
+    if base <= 0:
+        return None
+    k = (
+        STANDARD_PRESSURE_HPA**ALTIMETER_EXPONENT
+        * ISA_LAPSE_RATE_K_M
+        / ISA_SEALEVEL_TEMP_K
+    )
+    return float(
+        base * (1.0 + k * (altitude_m / base**ALTIMETER_EXPONENT)) ** (1.0 / ALTIMETER_EXPONENT)
+    )
+
+
 # ── extended thermodynamics (D-READING) ──────────────────────────────────────
 
 FT_PER_M = 3.280839895
 RV_WATER_VAPOR = 461.495  # J/(kg·K)
 STANDARD_AIR_DENSITY = 1.225  # kg/m³ at 15°C, sea level
 STANDARD_PRESSURE_HPA = 1013.25
+
+# ISA constants for the altimeter-setting reduction (decision 3 / QNH).
+ALTIMETER_EXPONENT = 0.190284  # same exponent as pressure_altitude_m (Rd·Γ/g)
+ISA_LAPSE_RATE_K_M = 0.0065  # ISA temperature lapse rate (K/m)
+ISA_SEALEVEL_TEMP_K = 288.15  # ISA sea-level standard temperature (15°C)
+ALTIMETER_OFFSET_HPA = 0.3  # standard NWS/ASOS offset term
 
 
 def saturation_vapor_pressure_hpa(temp_c: float) -> float:
@@ -343,6 +373,18 @@ def derive_reading(
         else:
             out["pressure_sealevel_hpa"] = None
             out["pressure_sealevel_inhg"] = None
+
+        # Altimeter setting (QNH) needs only station pressure + elevation; it is
+        # temperature-independent, so it is computed even when temp is missing.
+        if altitude_m is not None:
+            alt_hpa = altimeter_setting_hpa(station_hpa, altitude_m)
+            out["altimeter_setting_hpa"] = alt_hpa
+            out["altimeter_setting_inhg"] = (
+                pressure_hpa_to_inhg(alt_hpa) if alt_hpa is not None else None
+            )
+        else:
+            out["altimeter_setting_hpa"] = None
+            out["altimeter_setting_inhg"] = None
 
     return out
 
