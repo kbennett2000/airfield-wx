@@ -39,6 +39,17 @@ shows ONLINE / STALE / OFFLINE; the UNOFFICIAL banner is present regardless.
 solution, and the altimeter — everything measured at your field — stay fully lit. This is the same
 dashboard a second later, with the internet pulled.*
 
+### On a phone
+
+The dashboard is responsive: on a phone — your likely vantage at the hangar or run-up — the panels stack
+into one readable column, and the online/offline asymmetry is even clearer top-to-bottom.
+
+<p>
+  <img src="../assets/screenshots/mobile-online.png" alt="airfield-wx on a phone, online" width="260">
+  &nbsp;&nbsp;
+  <img src="../assets/screenshots/mobile-offline.png" alt="airfield-wx on a phone, feed offline — the METAR panel dims while local panels stay live" width="260">
+</p>
+
 ## The panels
 
 **Density Altitude (hero).** The headline performance number, in feet. Below it: pressure altitude,

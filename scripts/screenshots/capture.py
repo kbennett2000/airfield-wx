@@ -157,6 +157,42 @@ def _launch_system_chrome(pw: object):  # type: ignore[no-untyped-def]
     raise RuntimeError("no Chromium/Chrome available for Playwright")
 
 
+# A phone descriptor (iPhone-14-class) defined inline so it's version-proof —
+# no dependency on the playwright.devices registry. is_mobile/has_touch are
+# Chromium-only context options (work with the bundled build or system Chrome).
+IPHONE = {
+    "viewport": {"width": 390, "height": 844},
+    "device_scale_factor": 3,
+    "is_mobile": True,
+    "has_touch": True,
+    "user_agent": (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    ),
+}
+
+
+def _wait_populated(page: object) -> None:
+    """Block until the dashboard shows real data, not a wall of "—"."""
+    page.wait_for_function("document.querySelector('#da')?.textContent.trim() !== '—'")
+    page.locator("#rwy-fav").wait_for(state="visible")  # favored runway lit
+    page.wait_for_function(
+        "/cat-(vfr|mvfr|ifr|lifr)/.test(document.querySelector('#flight-cat')?.className||'')"
+    )
+    page.wait_for_timeout(400)  # let the compass SVG + animations settle
+
+
+def _shoot_online_offline(page: object, base: str, online: Path, offline: Path) -> None:
+    page.goto(f"{base}/dashboard/", wait_until="networkidle")
+    _wait_populated(page)
+    page.screenshot(path=str(online), full_page=True)
+    # OFFLINE: Net-Feed off → the violet METAR panel dims; cyan stays bright.
+    page.locator("#sw-feed-btn").click()
+    page.locator("#metar-panel.offline").wait_for()
+    page.wait_for_timeout(200)
+    page.screenshot(path=str(offline), full_page=True)
+
+
 def _capture(base: str) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -169,28 +205,28 @@ def _capture(base: str) -> None:
             browser = pw.chromium.launch()
         except Exception:
             browser = _launch_system_chrome(pw)
+
+        # ── Desktop (1440-wide retina) ──────────────────────────────────────
         page = browser.new_page(viewport={"width": 1440, "height": 900}, device_scale_factor=2)
-        page.goto(f"{base}/dashboard/", wait_until="networkidle")
-
-        # Wait until the dashboard is POPULATED, not a wall of "—":
-        page.wait_for_function("document.querySelector('#da')?.textContent.trim() !== '—'")
-        page.locator("#rwy-fav").wait_for(state="visible")  # favored runway lit
-        page.wait_for_function(
-            "/cat-(vfr|mvfr|ifr|lifr)/.test(document.querySelector('#flight-cat')?.className||'')"
+        _shoot_online_offline(
+            page, base, OUT / "dashboard-online.png", OUT / "dashboard-offline.png"
         )
-        page.wait_for_timeout(400)  # let the compass SVG + animations settle
-
-        page.screenshot(path=str(OUT / "dashboard-online.png"), full_page=True)
+        # Tight crops for inline use (desktop layout).
+        page.goto(f"{base}/dashboard/", wait_until="networkidle")
+        _wait_populated(page)
         page.locator("section.panel:has(#compass)").screenshot(
             path=str(OUT / "runway-compass.png")
         )
         page.locator("section.panel.hero").screenshot(path=str(OUT / "density-altitude.png"))
+        page.close()
 
-        # OFFLINE: Net-Feed off → the violet METAR panel dims; cyan stays bright.
-        page.locator("#sw-feed-btn").click()
-        page.locator("#metar-panel.offline").wait_for()
-        page.wait_for_timeout(200)
-        page.screenshot(path=str(OUT / "dashboard-offline.png"), full_page=True)
+        # ── Mobile (iPhone-class, the primary at-the-hangar context) ────────
+        mobile = browser.new_context(**IPHONE)
+        mpage = mobile.new_page()
+        _shoot_online_offline(
+            mpage, base, OUT / "mobile-online.png", OUT / "mobile-offline.png"
+        )
+        mobile.close()
 
         browser.close()
 

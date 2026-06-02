@@ -43,6 +43,16 @@ flight planning.**
 *The dashboard reads like a panel instrument. Cyan numbers are measured at your field; violet is
 internet-sourced (the METAR). [Full dashboard tour →](docs/guide/dashboard.md)*
 
+**On your phone** — where you'll actually use it, at the hangar or run-up — the panels stack into a
+single readable column. The offline behavior is even clearer here: the violet METAR panel dims to
+"NO FEED" while every cyan local panel stays bright and live.
+
+<p>
+  <img src="docs/assets/screenshots/mobile-online.png" alt="airfield-wx on a phone, online" width="270">
+  &nbsp;&nbsp;
+  <img src="docs/assets/screenshots/mobile-offline.png" alt="airfield-wx on a phone with the feed offline — the METAR panel dims, local panels stay live" width="270">
+</p>
+
 ## What you'll need
 
 | | |
