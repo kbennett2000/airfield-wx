@@ -123,6 +123,9 @@ http_timeout_seconds = 3
 [cache]
 ttl_seconds = 5
 
+[logging]
+enabled = true
+
 [[sensors]]
 id = "outdoor"
 role = "outdoor"

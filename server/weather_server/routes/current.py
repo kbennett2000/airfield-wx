@@ -9,9 +9,9 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 
 from .. import db as db_module
-from ..cache import TTLCache
 from ..config import SensorConfig
 from ..derivations.wind import resolve_wind
+from ..outdoor_source import outdoor_row_for_request, poll_with_cache
 from ..responses import (
     build_airport,
     build_astronomy,
@@ -22,7 +22,6 @@ from ..responses import (
     utc_now,
 )
 from ..schemas import CurrentResponse, CurrentSensorResponse, SensorReading
-from ..sensors import SensorPayload, SensorSource
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +45,8 @@ async def get_current(request: Request) -> CurrentResponse:
 
     outdoor_cfg = config.outdoor
     outdoor_reading: SensorReading | None = None
-    outdoor_row = db_module.latest_outdoor_reading(db) if outdoor_cfg is not None else None
+    # Logging on → latest logged row; logging off → live cached poll (Cycle 13).
+    outdoor_row = await outdoor_row_for_request(request.app.state, server_time)
     wind_row = (
         db_module.latest_wind_reading(db) if config.wind.source != "outdoor" else None
     )
@@ -63,7 +63,7 @@ async def get_current(request: Request) -> CurrentResponse:
     # display sensor: it feeds the resolver and is not shown in /current.
     other = [s for s in config.sensors if s.role not in ("outdoor", "wind_station")]
     poll_results = await asyncio.gather(
-        *(_poll_with_cache(cache, source, s, ttl=config.cache.ttl_seconds) for s in other),
+        *(poll_with_cache(cache, source, s, ttl=config.cache.ttl_seconds) for s in other),
         return_exceptions=True,
     )
     for sensor_cfg, result in zip(other, poll_results, strict=True):
@@ -111,7 +111,7 @@ async def get_current_one(sensor_id: str, request: Request) -> CurrentSensorResp
 
     reading: SensorReading
     if sensor_cfg.role == "outdoor":
-        row = db_module.latest_outdoor_reading(db)
+        row = await outdoor_row_for_request(request.app.state, server_time)
         if row is None:
             raise HTTPException(status_code=503, detail=("sensor_no_data", sensor_id))
         wind_row = (
@@ -127,7 +127,7 @@ async def get_current_one(sensor_id: str, request: Request) -> CurrentSensorResp
         )
     else:
         try:
-            payload = await _poll_with_cache(
+            payload = await poll_with_cache(
                 cache, source, sensor_cfg, ttl=config.cache.ttl_seconds
             )
         except Exception:
@@ -155,19 +155,6 @@ async def get_current_one(sensor_id: str, request: Request) -> CurrentSensorResp
         astronomy=astronomy,
         external=external,
     )
-
-
-async def _poll_with_cache(
-    cache: TTLCache,
-    source: SensorSource,
-    sensor: SensorConfig,
-    *,
-    ttl: float,
-) -> SensorPayload | None:
-    async def fetch() -> SensorPayload | None:
-        return await source.poll(sensor)
-
-    return await cache.get_or_fetch(sensor.id, fetch, ttl=ttl)
 
 
 def _live_reading_from_poll_result(

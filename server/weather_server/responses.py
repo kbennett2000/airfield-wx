@@ -56,7 +56,7 @@ def utc_now() -> datetime:
 
 def build_outdoor_reading_from_db_row(
     sensor: SensorConfig,
-    row: sqlite3.Row,
+    row: sqlite3.Row | dict[str, Any],
     server_time: datetime,
     *,
     resolved_wind: ResolvedWind | None = None,

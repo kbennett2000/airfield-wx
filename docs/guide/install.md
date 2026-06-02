@@ -129,8 +129,29 @@ The example is heavily commented; the sections:
 directory the server launches from (`server/`).
 
 ### `[logger]` / `[cache]`
-`interval_seconds` (how often the outdoor sensor is logged), `http_timeout_seconds`, and the
-on-demand-poll TTL `cache.ttl_seconds` (used by any non-outdoor station fetched at read time).
+`interval_seconds` (how often the outdoor sensor is logged *when logging is on*), `http_timeout_seconds`,
+and the on-demand-poll TTL `cache.ttl_seconds` (used by any non-outdoor station fetched at read time).
+
+### `[logging]` — history logging (OFF by default)
+```toml
+[logging]
+enabled = false
+```
+airfield-wx is a **live-conditions instrument**: density altitude, the runway solution, the altimeter
+setting, the METAR panel — everything you fly by — is computed from the **current** reading, so the
+station works fully without keeping any history. By default it stays clean and stateless: the logger
+never runs, nothing is written to disk, and the **`/history` and `/summary` endpoints return 404**
+("logging disabled"). The dashboard's trend chart shows a tidy "history disabled" note.
+
+Turn it on (`enabled = true`) **only if you want** the dashboard trend chart and the daily `/summary`
+roll-up. Two things to know:
+
+- **It can't be applied retroactively.** Enabling it starts logging from that moment — it can't recover
+  readings from before. (It's the prerequisite for the future wind-history work in
+  [future-work.md](../../docs/future-work.md).)
+- **A separate wind station (topology 3) requires it.** That station's data path *is* the log, so
+  `[wind] source = "<station>"` needs `[logging] enabled = true`. The default outdoor-borne wind works
+  fully with logging off (it rides the live reading).
 
 ### `[development]`
 `fixture_dir` — demo mode (above). Remove the block for real polling.

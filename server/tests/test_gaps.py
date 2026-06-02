@@ -340,25 +340,25 @@ def test_current_sensor_external_key_always_present(client: TestClient) -> None:
 # ── summary endpoint: 24h and 30d period labels ───────────────────────────────
 
 
-def test_summary_24h_period_label(client: TestClient) -> None:
+def test_summary_24h_period_label(logging_client: TestClient) -> None:
     """period=24h should return a 200 response with period == '24h'."""
-    r = client.get("/api/v1/summary/outdoor?period=24h")
+    r = logging_client.get("/api/v1/summary/outdoor?period=24h")
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.period == "24h"
 
 
-def test_summary_30d_period_label(client: TestClient) -> None:
+def test_summary_30d_period_label(logging_client: TestClient) -> None:
     """period=30d should return a 200 response with period == '30d'."""
-    r = client.get("/api/v1/summary/outdoor?period=30d")
+    r = logging_client.get("/api/v1/summary/outdoor?period=30d")
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.period == "30d"
 
 
-def test_summary_24h_has_stats_from_fixture_data(client: TestClient) -> None:
+def test_summary_24h_has_stats_from_fixture_data(logging_client: TestClient) -> None:
     """24h window returns a valid parseable response with non-negative count."""
-    r = client.get("/api/v1/summary/outdoor?period=24h")
+    r = logging_client.get("/api/v1/summary/outdoor?period=24h")
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.sample_count >= 0
@@ -373,7 +373,7 @@ def test_summary_calibration_offset_reflected_in_temperature(
     and assert the summary max reflects the calibrated value (33.0°C with offset
     -2.0), not the raw value (35.0°C). Fixture rows top out at ~21°C raw → ~19°C
     calibrated, so 33°C remains the unambiguous max."""
-    from tests.conftest import BRANDING_EXAMPLE, TOML_TEMPLATE
+    from tests.conftest import BRANDING_EXAMPLE, LOGGING_TOML_TEMPLATE
     from weather_server.db import init_db, insert_outdoor_reading
     from weather_server.main import create_app
 
@@ -394,7 +394,7 @@ def test_summary_calibration_offset_reflected_in_temperature(
     )
     conn.close()
 
-    TOML_WITH_OFFSET = TOML_TEMPLATE.replace(
+    TOML_WITH_OFFSET = LOGGING_TOML_TEMPLATE.replace(
         "temp_offset_c = -0.5", "temp_offset_c = -2.0"
     )
     fixture_dir = tmp_path / "fixtures"

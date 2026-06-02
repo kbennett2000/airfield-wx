@@ -21,6 +21,22 @@ http_timeout_seconds = 10
 [cache]
 ttl_seconds = 5
 
+# History logging — OFF by default. airfield-wx is a live-conditions instrument:
+# density altitude, the runway solution, altimeter, METAR — everything you fly by
+# is computed from the CURRENT reading, so the station works fully without keeping
+# any history, and stays clean and stateless out of the box.
+#
+# Turn this on ONLY if you want the dashboard trend chart and the daily /summary.
+# When off, the logger never runs, nothing is written to disk, and the /history
+# and /summary endpoints return 404 ("logging disabled").
+#
+# It CANNOT be applied retroactively: enabling it starts logging from that moment
+# — it can't recover past readings. (It's also the prerequisite for the future
+# wind-history work noted in docs/future-work.md, and a separate wind station —
+# topology 3 — requires it, since that station's data path IS the log.)
+[logging]
+enabled = false
+
 # Flexible anemometer topology (decision 16 / ADR-0006). `source` selects where
 # field wind comes from:
 #   "outdoor"  (default) — wind rides the outdoor payload: an all-in-one unit, or

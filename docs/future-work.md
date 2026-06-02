@@ -12,10 +12,12 @@ it would be worth doing.
   that full FAO-56 Penman-Monteith ET₀ requires. *Revisit if* a solar/pyranometer sensor is ever added
   back for agronomy reasons; the `light.py` derivation code is still in place, dormant. (ADR-0003.)
 
-- **History / summary wind enrichment.** Wind is logged — both outdoor-borne wind and the separate
-  wind station's `wind_readings` — but `/api/v1/history` and `/api/v1/summary` don't yet surface it. The
-  daily summary could gain wind stats (average, peak gust, prevailing direction). Noted out of scope in
-  Cycles 6b and 10b. *Revisit if* there's appetite for wind history/trends beyond the live dashboard.
+- **History / summary wind enrichment.** When logging is enabled, wind is recorded — both outdoor-borne
+  wind and the separate wind station's `wind_readings` — but `/api/v1/history` and `/api/v1/summary`
+  don't yet surface it. The daily summary could gain wind stats (average, peak gust, prevailing
+  direction). Noted out of scope in Cycles 6b and 10b. **Requires `[logging] enabled = true`** (history
+  logging is off by default — Cycle 13). *Revisit if* there's appetite for wind history/trends beyond
+  the live dashboard.
 
 ## Location & data
 

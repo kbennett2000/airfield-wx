@@ -9,6 +9,7 @@ than duplicating the TOML template.
 from __future__ import annotations
 
 import shutil
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -48,27 +49,46 @@ temp_offset_c = -0.5
 fallback_altitude_m = 1609.3
 """
 
+# History logging is OFF by default (Cycle 13), so the default `client` is a
+# stateless station: /current & friends work via a live cached poll of the
+# fixture source, and /history + /summary return 404. Tests that need the log
+# (history, summary, trends) use `logging_client`, which enables it.
+LOGGING_TOML_TEMPLATE = TOML_TEMPLATE + "\n[logging]\nenabled = true\n"
 
-@pytest.fixture
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    fixture_dir = tmp_path / "fixtures"
+
+def _spin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, template: str) -> TestClient:
+    # A unique workdir per call so a single test can use both `client` and
+    # `logging_client` without colliding on the fixtures dir / db / config.
+    workdir = Path(tempfile.mkdtemp(dir=tmp_path))
+    fixture_dir = workdir / "fixtures"
     shutil.copytree(FIXTURE_SRC, fixture_dir)
 
-    db_path = tmp_path / "weather.db"
-    cfg = tmp_path / "weather.toml"
+    cfg = workdir / "weather.toml"
     cfg.write_text(
-        TOML_TEMPLATE.format(
-            db_path=str(db_path),
+        template.format(
+            db_path=str(workdir / "weather.db"),
             fixture_dir=str(fixture_dir),
             branding_path=str(BRANDING_EXAMPLE),
         )
     )
-
     monkeypatch.setenv("WEATHER_CONFIG", str(cfg))
 
     # Re-import to pick up the env var via lifespan.
     from weather_server.main import create_app
 
-    app = create_app()
-    with TestClient(app) as tc:
+    return TestClient(create_app())
+
+
+@pytest.fixture
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """Default station — history logging OFF (the shipping default)."""
+    with _spin(tmp_path, monkeypatch, TOML_TEMPLATE) as tc:
+        yield tc
+
+
+@pytest.fixture
+def logging_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """Opt-in logging enabled — the logger prefills/records, so /history and
+    /summary return data (today's behavior)."""
+    with _spin(tmp_path, monkeypatch, LOGGING_TOML_TEMPLATE) as tc:
         yield tc

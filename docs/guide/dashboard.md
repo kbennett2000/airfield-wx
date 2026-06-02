@@ -80,6 +80,11 @@ currency) is a regional overlay and is off.**
 little or no history yet, it shows an empty/partial chart — it fills in as the logger accumulates
 readings.
 
+> **History is off by default.** airfield-wx is a live-conditions instrument, so it doesn't keep history
+> unless you ask it to. When logging is off this panel shows *"History disabled — enable logging in
+> weather.toml ([logging] enabled = true) to see trends"* — and that's the only panel affected; every
+> live readout keeps working. See the [install guide](install.md#logging--history-logging-off-by-default).
+
 ## The toggles (top right)
 
 - **Units (IMP/MET).** Flips inHg↔hPa, statute-miles↔km, °F↔°C live (display only — no re-fetch, not

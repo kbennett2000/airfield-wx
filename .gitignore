@@ -44,3 +44,4 @@ demo/public/
 .vscode/
 *.swp
 *~
+.vercel

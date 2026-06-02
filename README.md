@@ -87,11 +87,13 @@ For the technically inclined:
 
 - **One source of truth:** a read-only, versioned HTTP API under `/api/v1/`. Every client (dashboard,
   tray widget) polls the same endpoints — no per-client math.
-- **The database stores RAW sensor readings only;** every conversion / derived value (density altitude,
-  altimeter setting, vane-corrected wind, runway components) is computed at **read time**. Bug fixes
-  apply retroactively to all history — no backfill.
-- **Offline-first:** the server starts, serves, and logs with no internet. The only thing that differs
-  online vs offline is the optional `external` (METAR/model) block.
+- **Everything is a read-time derivation off the current reading;** nothing you fly by needs history.
+  So **history logging is opt-in and off by default** — the station is stateless out of the box (the
+  `/history` and `/summary` endpoints simply 404). Turn on `[logging]` only if you want the dashboard
+  trend chart and the daily summary; raw readings are then stored and every derived value is still
+  computed at **read time** (bug fixes apply retroactively — no backfill).
+- **Offline-first:** the server starts and serves with no internet. The only thing that differs online
+  vs offline is the optional `external` (METAR/model) block.
 - **Provenance is visible:** **cyan** = your LOCAL sensors (always live); **violet** = internet-sourced
   (may be absent, and *dims* when the feed is gone). See the
   **[dashboard tour](docs/guide/dashboard.md)**.

@@ -35,6 +35,22 @@ class CacheConfig:
 
 
 @dataclass(frozen=True)
+class LoggingConfig:
+    """[logging] block — optional history logging, OFF by default.
+
+    airfield-wx is a live-conditions instrument: every flight-relevant output
+    is a read-time derivation off the *current* reading, so nothing needs
+    history. With logging off the station is stateless — the logger loop never
+    runs, nothing is written, and /history + /summary disappear (404). Turn it
+    on only if you want trend charts / the daily summary. It CANNOT be applied
+    retroactively: enabling it starts logging from then; past readings can't be
+    recovered. It is also the prerequisite for the wind-history-enrichment work
+    in docs/future-work.md."""
+
+    enabled: bool = False
+
+
+@dataclass(frozen=True)
 class WindConfig:
     """[wind] block — flexible anemometer topology (decision 16 / ADR-0006).
 
@@ -126,6 +142,7 @@ class Config:
     external: ExternalConfig = field(default_factory=ExternalConfig)
     airport: AirportConfig = field(default_factory=AirportConfig)
     wind: WindConfig = field(default_factory=WindConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
     sensors: list[SensorConfig] = field(default_factory=list)
 
     def sensor_by_id(self, sensor_id: str) -> SensorConfig | None:
@@ -167,6 +184,7 @@ def _parse(raw: dict[str, Any]) -> Config:
     external = _parse_external(raw.get("external", {}))
     airport = _parse_airport(raw.get("airport", {}))
     wind = WindConfig(**raw.get("wind", {}))
+    logging_cfg = LoggingConfig(**raw.get("logging", {}))
     sensors_raw = raw.get("sensors", [])
     sensors = [SensorConfig(**s) for s in sensors_raw]
     if not sensors:
@@ -190,6 +208,7 @@ def _parse(raw: dict[str, Any]) -> Config:
         external=external,
         airport=airport,
         wind=wind,
+        logging=logging_cfg,
         sensors=sensors,
     )
 

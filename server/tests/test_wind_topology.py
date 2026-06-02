@@ -40,6 +40,9 @@ http_timeout_seconds = 1
 [cache]
 ttl_seconds = 5
 
+[logging]
+enabled = true
+
 [wind]
 source = "{wind_source}"
 max_age_s = {max_age_s}
@@ -210,6 +213,9 @@ http_timeout_seconds = 1
 
 [cache]
 ttl_seconds = 5
+
+[logging]
+enabled = true
 
 [development]
 fixture_dir = "{fixture_dir}"

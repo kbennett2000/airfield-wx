@@ -44,6 +44,11 @@ async def get_summary(
     config = request.app.state.config
     db = request.app.state.db
 
+    # The daily summary rolls up logged history; with logging off (Cycle 13)
+    # there is nothing to roll up, so the endpoint disappears (404).
+    if not config.logging.enabled:
+        raise HTTPException(status_code=404, detail=("logging_disabled", None))
+
     sensor_cfg = config.sensor_by_id(sensor_id)
     if sensor_cfg is None:
         raise HTTPException(status_code=404, detail=("sensor_not_found", sensor_id))

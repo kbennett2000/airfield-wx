@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, Request
 
 from .. import db as db_module
 from ..derivations.wind import resolve_wind
+from ..outdoor_source import outdoor_row_for_request
 from ..responses import build_airport, build_outdoor_reading_from_db_row, utc_now
 from ..schemas import AirportResponse
 
@@ -27,7 +28,7 @@ async def get_airport(
     db = request.app.state.db
 
     outdoor_reading = None
-    outdoor_row = db_module.latest_outdoor_reading(db) if config.outdoor is not None else None
+    outdoor_row = await outdoor_row_for_request(request.app.state, server_time)
     wind_row = (
         db_module.latest_wind_reading(db) if config.wind.source != "outdoor" else None
     )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, Request
 
-from .. import db as db_module
+from ..outdoor_source import outdoor_row_for_request
 from ..responses import build_astronomy, build_outdoor_reading_from_db_row, utc_now
 from ..schemas import AstronomyResponse
 
@@ -23,13 +23,11 @@ async def get_astronomy(
 ) -> AstronomyResponse:
     server_time = utc_now()
     config = request.app.state.config
-    db = request.app.state.db
 
     outdoor_reading = None
-    if config.outdoor is not None:
-        row = db_module.latest_outdoor_reading(db)
-        if row is not None:
-            outdoor_reading = build_outdoor_reading_from_db_row(config.outdoor, row, server_time)
+    row = await outdoor_row_for_request(request.app.state, server_time)
+    if config.outdoor is not None and row is not None:
+        outdoor_reading = build_outdoor_reading_from_db_row(config.outdoor, row, server_time)
 
     astronomy = build_astronomy(
         server_time,

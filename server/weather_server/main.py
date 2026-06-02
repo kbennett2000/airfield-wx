@@ -72,8 +72,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.external_store = external_store
     app.state.branding = load_branding(config.server.branding_path)
 
-    logger_task = asyncio.create_task(outdoor_logger_loop(config, source, db_conn))
-    app.state.logger_task = logger_task
     # Optional: only spawns a live loop when [external] is enabled; otherwise
     # returns immediately and the store stays empty (external block ⇒ null).
     external_task = asyncio.create_task(
@@ -81,15 +79,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.external_task = external_task
 
-    tasks = [logger_task, external_task]
+    tasks = [external_task]
 
-    # Separate wind station (ADR-0006 / topology 3): a logged poll-and-write
-    # loop, spawned only when a wind station is configured. In the default
-    # outdoor-wind topologies this loop never runs.
+    # History logging is OFF by default (Cycle 13): airfield-wx is a
+    # live-conditions instrument, so by default the station is stateless — no
+    # logger loops run and nothing is written. Both the outdoor logger and the
+    # separate wind-station logger (ADR-0006 / topology 3) are gated on it.
+    logger_task: asyncio.Task[None] | None = None
     wind_logger_task: asyncio.Task[None] | None = None
-    if config.wind.source != "outdoor":
-        wind_logger_task = asyncio.create_task(wind_logger_loop(config, source, db_conn))
-        tasks.append(wind_logger_task)
+    if config.logging.enabled:
+        logger_task = asyncio.create_task(outdoor_logger_loop(config, source, db_conn))
+        tasks.append(logger_task)
+        if config.wind.source != "outdoor":
+            wind_logger_task = asyncio.create_task(wind_logger_loop(config, source, db_conn))
+            tasks.append(wind_logger_task)
+    app.state.logger_task = logger_task
     app.state.wind_logger_task = wind_logger_task
 
     try:
@@ -216,6 +220,11 @@ def _message_for(code: str, arg: object) -> str:
         return f"No sensor with id {arg!r} is registered."
     if code == "history_not_available":
         return f"History is not available for sensor {arg!r} (only outdoor is logged)."
+    if code == "logging_disabled":
+        return (
+            "History logging is disabled on this station. Enable it in "
+            "weather.toml ([logging] enabled = true) to record trends."
+        )
     if code == "sensor_no_data":
         return f"Sensor {arg!r} has not reported any data yet."
     if code == "bad_request":

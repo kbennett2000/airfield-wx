@@ -39,6 +39,11 @@ async def get_history(
     config = request.app.state.config
     db = request.app.state.db
 
+    # History logging is opt-in (Cycle 13). When off, there is no log to serve
+    # and the endpoint disappears (404), rather than returning empty data.
+    if not config.logging.enabled:
+        raise HTTPException(status_code=404, detail=("logging_disabled", None))
+
     sensor_cfg = config.sensor_by_id(sensor_id)
     if sensor_cfg is None:
         raise HTTPException(status_code=404, detail=("sensor_not_found", sensor_id))

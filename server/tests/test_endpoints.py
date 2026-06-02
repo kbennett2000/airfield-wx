@@ -82,8 +82,11 @@ def test_current_one_unknown_returns_404_with_error_envelope(client: TestClient)
     assert body["error"]["code"] == "sensor_not_found"
 
 
-def test_history_outdoor_returns_rows(client: TestClient) -> None:
-    r = client.get("/api/v1/history/outdoor?hours=24")
+# History + summary need logging enabled (it's off by default — Cycle 13), so
+# these use the `logging_client` fixture. The "disabled ⇒ 404" path is covered
+# in test_logging.py.
+def test_history_outdoor_returns_rows(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/history/outdoor?hours=24")
     assert r.status_code == 200
     parsed = schemas.HistoryResponse.model_validate(r.json())
     assert parsed.sensor_id == "outdoor"
@@ -95,8 +98,8 @@ def test_history_outdoor_returns_rows(client: TestClient) -> None:
         assert "temperature_c" in sample
 
 
-def test_history_include_light_adds_lux(client: TestClient) -> None:
-    r = client.get("/api/v1/history/outdoor?hours=24&include=weather,light")
+def test_history_include_light_adds_lux(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/history/outdoor?hours=24&include=weather,light")
     assert r.status_code == 200
     parsed = schemas.HistoryResponse.model_validate(r.json())
     if parsed.rows:
@@ -104,29 +107,29 @@ def test_history_include_light_adds_lux(client: TestClient) -> None:
         assert "lux" in sample
 
 
-def test_history_unknown_sensor_returns_404_sensor_not_found(client: TestClient) -> None:
-    r = client.get("/api/v1/history/kitchen")
+def test_history_unknown_sensor_returns_404_sensor_not_found(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/history/kitchen")
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "sensor_not_found"
 
 
-def test_history_bad_include_group_returns_400(client: TestClient) -> None:
-    r = client.get("/api/v1/history/outdoor?include=weather,nonsense")
+def test_history_bad_include_group_returns_400(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/history/outdoor?include=weather,nonsense")
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "bad_request"
 
 
-def test_history_from_to_window(client: TestClient) -> None:
+def test_history_from_to_window(logging_client: TestClient) -> None:
     # An explicit `from` defines the window (overriding the default `hours`).
-    r = client.get("/api/v1/history/outdoor?from=2020-01-01T00:00:00Z")
+    r = logging_client.get("/api/v1/history/outdoor?from=2020-01-01T00:00:00Z")
     assert r.status_code == 200
     parsed = schemas.HistoryResponse.model_validate(r.json())
     assert parsed.from_.year == 2020
     assert parsed.row_count > 0  # fixture-prefilled rows fall in [2020, now]
 
 
-def test_history_from_to_overrides_hours(client: TestClient) -> None:
-    r = client.get(
+def test_history_from_to_overrides_hours(logging_client: TestClient) -> None:
+    r = logging_client.get(
         "/api/v1/history/outdoor?hours=1&from=2020-01-01T00:00:00Z&to=2030-01-01T00:00:00Z"
     )
     assert r.status_code == 200
@@ -135,22 +138,22 @@ def test_history_from_to_overrides_hours(client: TestClient) -> None:
     assert parsed.to.year == 2030
 
 
-def test_history_bad_from_returns_400(client: TestClient) -> None:
-    r = client.get("/api/v1/history/outdoor?from=not-a-date")
+def test_history_bad_from_returns_400(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/history/outdoor?from=not-a-date")
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "bad_request"
 
 
-def test_history_from_after_to_returns_400(client: TestClient) -> None:
-    r = client.get(
+def test_history_from_after_to_returns_400(logging_client: TestClient) -> None:
+    r = logging_client.get(
         "/api/v1/history/outdoor?from=2030-01-01T00:00:00Z&to=2020-01-01T00:00:00Z"
     )
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "bad_request"
 
 
-def test_summary_outdoor_returns_stats(client: TestClient) -> None:
-    r = client.get("/api/v1/summary/outdoor?period=7d")
+def test_summary_outdoor_returns_stats(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/summary/outdoor?period=7d")
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.sensor_id == "outdoor"
@@ -163,16 +166,16 @@ def test_summary_outdoor_returns_stats(client: TestClient) -> None:
     assert parsed.light_integral_mol_m2 is not None
 
 
-def test_summary_today_period_label(client: TestClient) -> None:
-    r = client.get("/api/v1/summary/outdoor")  # default period=today
+def test_summary_today_period_label(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/summary/outdoor")  # default period=today
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.period == "today"
 
 
-def test_summary_empty_db_returns_null_stats(client: TestClient) -> None:
-    client.app.state.db.execute("DELETE FROM outdoor_readings")
-    r = client.get("/api/v1/summary/outdoor?period=7d")
+def test_summary_empty_db_returns_null_stats(logging_client: TestClient) -> None:
+    logging_client.app.state.db.execute("DELETE FROM outdoor_readings")
+    r = logging_client.get("/api/v1/summary/outdoor?period=7d")
     assert r.status_code == 200
     parsed = schemas.SummaryResponse.model_validate(r.json())
     assert parsed.sample_count == 0
@@ -182,15 +185,15 @@ def test_summary_empty_db_returns_null_stats(client: TestClient) -> None:
     assert parsed.light_integral_mol_m2 is None
 
 
-def test_summary_unknown_404_sensor_not_found(client: TestClient) -> None:
-    r = client.get("/api/v1/summary/kitchen")
+def test_summary_unknown_404_sensor_not_found(logging_client: TestClient) -> None:
+    r = logging_client.get("/api/v1/summary/kitchen")
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "sensor_not_found"
 
 
-def test_summary_bad_period_422(client: TestClient) -> None:
+def test_summary_bad_period_422(logging_client: TestClient) -> None:
     # period is a Literal; FastAPI rejects unknown values with 422.
-    r = client.get("/api/v1/summary/outdoor?period=decade")
+    r = logging_client.get("/api/v1/summary/outdoor?period=decade")
     assert r.status_code == 422
 
 

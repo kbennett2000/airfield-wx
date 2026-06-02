@@ -77,6 +77,8 @@ let themeOverride = 'auto';
 let lastCurrent = null;
 let lastHistory = null;
 let trendChart = null;
+let historyTimer = null;     // setInterval handle; cleared if logging is disabled
+let historyDisabled = false; // server returned 404 "logging disabled" for /history
 
 const isMetric = () => units === 'metric';
 
@@ -572,15 +574,39 @@ function initTrend() {
 }
 
 async function refreshHistory() {
+  if (historyDisabled) return;
   let data;
   try {
     data = await fetchJson('/api/v1/history/outdoor?hours=24&include=weather');
   } catch (e) {
+    // History logging is opt-in (off by default). A 404 means the endpoint is
+    // disabled, not broken — show a tidy disabled state and stop polling it.
+    if (String((e && e.message) || e).includes('404')) {
+      showHistoryDisabled();
+      return;
+    }
     console.warn('history fetch failed:', e);
     return;
   }
   lastHistory = data.rows || [];
   plotTrend();
+}
+
+function showHistoryDisabled() {
+  historyDisabled = true;
+  if (historyTimer) { clearInterval(historyTimer); historyTimer = null; }
+  lastHistory = [];
+  if (trendChart) {
+    trendChart.data.labels = [];
+    trendChart.data.datasets.forEach(d => { d.data = []; });
+    trendChart.update('none');
+  }
+  const empty = $('trend-empty');
+  if (empty) {
+    empty.textContent =
+      'History disabled — enable logging in weather.toml ([logging] enabled = true) to see trends.';
+    empty.hidden = false;
+  }
 }
 
 function plotTrend() {
@@ -636,7 +662,7 @@ function start() {
   refreshCurrent();
   refreshHistory();
   setInterval(refreshCurrent, CURRENT_REFRESH_MS);
-  setInterval(refreshHistory, HISTORY_REFRESH_MS);
+  historyTimer = setInterval(refreshHistory, HISTORY_REFRESH_MS);
   setInterval(renderClock, 1000);
 }
 
