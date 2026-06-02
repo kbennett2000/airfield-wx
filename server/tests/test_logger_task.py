@@ -93,6 +93,8 @@ def _wind_config(fixture_dir: str, *, source: str) -> object:
             "logger": {"interval_seconds": 1},
             "development": {"fixture_dir": fixture_dir},
             "wind": {"source": source},
+            # A separate wind station requires logging enabled (Cycle 14).
+            "logging": {"enabled": True},
             "sensors": [
                 {"id": "outdoor", "role": "outdoor", "ip": "x"},
                 {"id": "windy", "role": "wind_station", "ip": "y", "has_wind": True},

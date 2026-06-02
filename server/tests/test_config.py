@@ -76,6 +76,7 @@ def test_wind_block_parsed() -> None:
     config = load_config_from_dict(
         {
             "wind": {"source": "windy", "max_age_s": 120},
+            "logging": {"enabled": True},  # a separate station requires logging (Cycle 14)
             "sensors": [
                 {"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"},
                 {"id": "windy", "role": "wind_station", "ip": "1.1.1.2", "has_wind": True},
@@ -94,3 +95,57 @@ def test_wind_source_naming_unknown_sensor_raises() -> None:
                 "sensors": [{"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"}],
             }
         )
+
+
+# ── separate wind station (topology 3) requires logging enabled (Cycle 14) ──
+
+
+def _station_config(*, logging_enabled: bool) -> dict:
+    cfg: dict = {
+        "wind": {"source": "windy"},
+        "sensors": [
+            {"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"},
+            {"id": "windy", "role": "wind_station", "ip": "1.1.1.2", "has_wind": True},
+        ],
+    }
+    if logging_enabled:
+        cfg["logging"] = {"enabled": True}
+    return cfg
+
+
+def test_separate_wind_station_without_logging_raises() -> None:
+    # A topology-3 station's wind comes only from the wind_readings log, so with
+    # logging off it would silently resolve no wind — refuse to start instead.
+    with pytest.raises(ValueError) as exc:
+        load_config_from_dict(_station_config(logging_enabled=False))
+    msg = str(exc.value)
+    assert "requires history logging" in msg  # names the problem
+    assert "wind_readings" in msg
+    assert "[logging] enabled = true" in msg  # remedy 1
+    assert "outdoor" in msg  # remedy 2
+
+
+def test_separate_wind_station_with_logging_ok() -> None:
+    config = load_config_from_dict(_station_config(logging_enabled=True))
+    assert config.wind.source == "windy"
+    assert config.logging.enabled is True
+
+
+def test_outdoor_wind_logging_off_ok() -> None:
+    # The default stateless appliance must start fine.
+    config = load_config_from_dict(
+        {"sensors": [{"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"}]}
+    )
+    assert config.wind.source == "outdoor"
+    assert config.logging.enabled is False
+
+
+def test_outdoor_wind_logging_on_ok() -> None:
+    config = load_config_from_dict(
+        {
+            "logging": {"enabled": True},
+            "sensors": [{"id": "outdoor", "role": "outdoor", "ip": "1.1.1.1"}],
+        }
+    )
+    assert config.wind.source == "outdoor"
+    assert config.logging.enabled is True

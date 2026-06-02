@@ -149,9 +149,11 @@ roll-up. Two things to know:
 - **It can't be applied retroactively.** Enabling it starts logging from that moment — it can't recover
   readings from before. (It's the prerequisite for the future wind-history work in
   [future-work.md](../../docs/future-work.md).)
-- **A separate wind station (topology 3) requires it.** That station's data path *is* the log, so
-  `[wind] source = "<station>"` needs `[logging] enabled = true`. The default outdoor-borne wind works
-  fully with logging off (it rides the live reading).
+- **A separate wind station (topology 3) requires it — enforced at startup.** That station's data path
+  *is* the log, so `[wind] source = "<station>"` needs `[logging] enabled = true`. If you configure a
+  separate wind station with logging off, **the app refuses to start** and tells you both ways to fix it
+  (enable logging, or set `[wind] source = "outdoor"`) — rather than silently showing no wind. The
+  default outdoor-borne wind works fully with logging off (it rides the live reading).
 
 ### `[development]`
 `fixture_dir` — demo mode (above). Remove the block for real polling.

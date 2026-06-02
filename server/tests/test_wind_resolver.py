@@ -40,7 +40,13 @@ def _config(source: str = "outdoor", max_age_s: float = 90.0, *, station: bool =
             }
         )
     return load_config_from_dict(
-        {"sensors": sensors, "wind": {"source": source, "max_age_s": max_age_s}}
+        {
+            "sensors": sensors,
+            "wind": {"source": source, "max_age_s": max_age_s},
+            # A separate wind station requires logging enabled (Cycle 14);
+            # harmless for the outdoor-source cases.
+            "logging": {"enabled": True},
+        }
     )
 
 

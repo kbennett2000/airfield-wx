@@ -200,6 +200,16 @@ def _parse(raw: dict[str, Any]) -> Config:
         raise ValueError(
             f"[wind] source {wind.source!r} names no configured sensor"
         )
+    # A separate wind station (topology 3) is fed only by the wind_readings
+    # log, so it needs logging enabled — otherwise it silently resolves no
+    # wind. Fail loud at startup naming both fixes (Cycle 14 / ADR-0006).
+    if wind.source != "outdoor" and not logging_cfg.enabled:
+        raise ValueError(
+            f"[wind] source {wind.source!r} is a separate wind station, which requires "
+            "history logging to be enabled — its wind comes from the wind_readings log. "
+            'Either set [logging] enabled = true, or set [wind] source = "outdoor" to use '
+            "wind from the outdoor unit."
+        )
     return Config(
         server=server,
         logger=logger,

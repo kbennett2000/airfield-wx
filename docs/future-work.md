@@ -33,6 +33,15 @@ it would be worth doing.
 
 ## Wind topology (ADR-0006 "revisit if")
 
+- **Decouple the separate wind station from logging.** A topology-3 wind station gets its current wind
+  only from the `wind_readings` log, so it depends on `[logging] enabled = true`. Cycle 14 added a
+  fail-loud startup check (configuring a separate station with logging off refuses to start) as an
+  interim guard. The *real* fix is to give the wind station a read-time live-poll path like the outdoor
+  sensor got in Cycle 13 (`outdoor_source.outdoor_row_for_request`), so **current** wind never depends on
+  the archive for any sensor — the same smell Cycle 13 fixed for outdoor. Deferred deliberately: it's the
+  on-demand poll loop + cache for a logged source, more machinery than the guard, and the guard makes the
+  failure obvious in the meantime. *Revisit if* topology 3 + a stateless (logging-off) station is wanted.
+
 - **Multiple anemometers per field.** Today it's one wind source per station (`wind.source`). A long
   strip might want wind at both ends. *Revisit if* that need appears — would mean more than one wind
   source and a rule for combining/selecting them.
