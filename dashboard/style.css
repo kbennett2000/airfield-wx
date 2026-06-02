@@ -252,6 +252,25 @@ body.night .sys{color:#9fb3c4}
   .span12{grid-column:span 2}
   .hero .big{font-size:54px}
 }
+/* Phones: condense the dense header so it reads cleanly at ~390px. Additive —
+   the desktop / 980px layout above is untouched. Both banners stay legible and
+   the LEDs/toggles stay functional (only the toggle labels + the dev branding
+   hint are dropped). */
+@media (max-width:480px){
+  .bezel{padding:12px 14px;gap:12px}
+  .brandblock{min-width:0}
+  .slot-name{font-size:20px}
+  .brand-foot{display:none}            /* dev-only "← branding.toml" hint */
+  .head-right{gap:12px}
+  .clock{text-align:left}
+  .clock .z{font-size:22px}
+  .station{border-left:0;padding-left:0;min-width:0}
+  .leds{border-left:0;padding-left:0}
+  .switches{border-left:0;padding-left:0;gap:8px}
+  .sw{min-width:0;padding:5px 9px}
+  .sw .swl{display:none}               /* keep the .swv state value + tap target */
+  .hero .big{font-size:46px}
+}
 @media (prefers-reduced-motion:reduce){
   .panel{animation:none;opacity:1;transform:none}.dot.on{animation:none}
 }
